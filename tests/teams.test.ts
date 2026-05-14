@@ -91,7 +91,7 @@ let harness: Harness;
 beforeEach(() => {
   const sqlite = new Database(":memory:");
   sqlite.exec("PRAGMA foreign_keys = ON");
-  for (const migration of ["migrations/0001_init.sql", "migrations/0002_sessions.sql", "migrations/0003_teams.sql"]) {
+  for (const migration of ["migrations/0001_init.sql", "migrations/0002_sessions.sql", "migrations/0003_teams.sql", "migrations/0004_legacy_members.sql"]) {
     sqlite.exec(readFileSync(migration, "utf8"));
   }
   const db = new TestD1Database(sqlite);
