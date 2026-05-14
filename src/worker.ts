@@ -287,7 +287,20 @@ function relTime(ts: number, now: number): string {
 async function dashboard(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env);
   if (!user) {
-    return html(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>htmldock</title><style>body{font:14px/1.5 -apple-system,"PingFang SC",sans-serif;margin:0;color:#1B1A17;background:#FBF8F1}main{max-width:560px;margin:80px auto;padding:32px;background:#fff;border:1px solid #E8E5DA;border-radius:12px}h1{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-size:36px;margin:0 0 12px}a.btn{display:inline-block;background:#0F8A6C;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600}</style></head><body><main><h1>htmldock</h1><p>Sign in with Lark to open the team dashboard, browse private documents, or create CLI tokens.</p><p><a class="btn" href="/api/auth/lark">Sign in with Lark</a></p></main></body></html>`);
+    return html(`<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>htmldock</title>
+<style>
+body{font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;margin:0;color:#111827;background:#f6f7f8}
+.top{height:52px;display:flex;align-items:center;padding:0 22px;background:#fff;border-bottom:1px solid #e5e7eb;font-weight:700}.top span{color:#0f766e}
+main{max-width:520px;margin:72px auto;padding:0 18px}.panel{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 1px 2px rgba(17,24,39,.04)}
+h1{font-size:24px;line-height:1.2;margin:0 0 8px}p{color:#6b7280;margin:0 0 18px}.btn{display:inline-flex;height:36px;align-items:center;padding:0 14px;border-radius:7px;background:#111827;color:#fff;text-decoration:none;font-weight:650}
+</style>
+</head>
+<body><div class="top">html<span>dock</span></div><main><section class="panel"><h1>Sign in to htmldock</h1><p>Use Lark to browse team HTML docs and create CLI tokens.</p><a class="btn" href="/api/auth/lark">Sign in with Lark</a></section></main></body></html>`);
   }
 
   const now = unixNow();

@@ -61,15 +61,15 @@ describe("renderDashboard", () => {
   const html = renderDashboard(fixture);
 
   test("renders required dashboard landmarks and data", () => {
-    expect(html).toContain("#FBF8F1");
+    expect(html).toContain("#f6f7f8");
     expect(html).toContain("#0F8A6C");
     expect(html).toContain("<title>htmldock");
     expect(html).toContain("acme-infra");
-    expect(html).toContain("acme-billing");
+    expect(html).toContain("Acme Billing");
     expect(html).toContain("Auth login flow");
     expect(html).toContain("R2 upload contract");
     expect(html).toContain("Recent");
-    expect(html).toContain("Owned");
+    expect(html).toContain("CLI setup");
     expect(html).toMatch(/acme-infra \/ cherry \/ auth\/login-flow\.html/);
   });
 
