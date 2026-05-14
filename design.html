@@ -1011,32 +1011,31 @@ explicitly asked. Report the printed URL back.</code></pre>
               <span style="font-size:12px;color:var(--fg-muted);">Showing first 20 · <a href="#" style="color:var(--accent);text-decoration:none;">Show all 147 →</a></span>
             </div>
             <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 130px 90px 90px;gap:8px;">
-                <strong>Auth redesign notes</strong><span style="color:var(--fg-muted);">cherry</span><span>Leo</span><span style="color:var(--fg-muted);">2m ago</span>
+              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 170px 80px 80px;gap:8px;">
+                <strong>Auth redesign notes</strong><span style="color:var(--fg-muted);">acme-infra / cherry</span><span>Leo</span><span style="color:var(--fg-muted);">2m ago</span>
               </div>
-              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 130px 90px 90px;gap:8px;">
-                <strong>R2 upload contract</strong><span style="color:var(--fg-muted);">htmldock</span><span>Ming</span><span style="color:var(--fg-muted);">18m ago</span>
+              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 170px 80px 80px;gap:8px;">
+                <strong>R2 upload contract</strong><span style="color:var(--fg-muted);">acme-infra / htmldock</span><span>Ming</span><span style="color:var(--fg-muted);">18m ago</span>
               </div>
-              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 130px 90px 90px;gap:8px;">
-                <strong>Search indexing plan</strong><span style="color:var(--fg-muted);">htmldock</span><span>Ada</span><span style="color:var(--fg-muted);">1h ago</span>
+              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 170px 80px 80px;gap:8px;">
+                <strong>Search indexing plan</strong><span style="color:var(--fg-muted);">acme-infra / htmldock</span><span>Ada</span><span style="color:var(--fg-muted);">1h ago</span>
               </div>
               <div style="padding:18px;text-align:center;color:var(--fg-muted);background:#fbfbfa;">No documents yet. Run <code>htmldock push</code> to get started.</div>
             </div>
           </div>
           <div style="border-left:1px solid var(--border);padding:14px;background:#f8f7f4;">
             <div style="font-size:12px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">My Docs</div>
-            <div style="padding:10px 0;border-bottom:1px solid var(--border);"><strong>CLI spec</strong><br><span style="color:var(--fg-muted);font-size:12px;">htmldock · today</span></div>
-            <div style="padding:10px 0;border-bottom:1px solid var(--border);"><strong>Dashboard UX</strong><br><span style="color:var(--fg-muted);font-size:12px;">htmldock · yesterday</span></div>
-            <div style="padding:10px 0;"><strong>OAuth notes</strong><br><span style="color:var(--fg-muted);font-size:12px;">cherry · Mon</span></div>
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);"><strong>CLI spec</strong><br><span style="color:var(--fg-muted);font-size:12px;">acme-infra / htmldock · today</span></div>
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);"><strong>Dashboard UX</strong><br><span style="color:var(--fg-muted);font-size:12px;">acme-infra / htmldock · yesterday</span></div>
+            <div style="padding:10px 0;"><strong>OAuth notes</strong><br><span style="color:var(--fg-muted);font-size:12px;">acme-infra / cherry · Mon</span></div>
           </div>
         </div>
       </div>
 
       <h3>Layout B：项目卡片网格</h3>
       <div style="border:1px solid var(--border);border-radius:8px;background:#fff;box-shadow:var(--shadow);overflow:hidden;margin:14px 0;">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:150px 150px 1fr;gap:10px;background:#fbfbfa;">
-          <select style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg);"><option>github.com</option><option>gitlab.internal</option></select>
-          <input value="owner: leeguoo" style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg-muted);">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:200px 1fr;gap:10px;background:#fbfbfa;">
+          <select style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg);"><option>team: acme-infra</option><option>team: acme-billing</option><option>team: acme-platform</option></select>
           <input value="Search project docs..." style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg-muted);">
         </div>
         <div style="padding:18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;background:#fff;">
@@ -1115,6 +1114,14 @@ explicitly asked. Report the printed URL back.</code></pre>
           <tr><td>T24</td><td>OAuth <code>state</code> 过期、复用、redirect 不在 allowlist 时拒绝 callback。</td><td>Integration</td><td>Miniflare + mocked Lark API</td></tr>
           <tr><td>T25</td><td>PAT scope / revoke / expires 校验：无 <code>docs:write</code> 返回 403，撤销或过期返回 401。</td><td>Integration</td><td>Miniflare + D1 seed</td></tr>
           <tr><td>T26</td><td><code>POST /api/docs</code> 对非法 metadata、超 2 MiB 文件、限流分别返回 400 / 413 / 429。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td><strong>T27</strong></td><td><code>htmldock team create</code> 创建者自动成为 admin；team_members 含 role=admin 一行。</td><td>Integration</td><td>Miniflare + D1</td></tr>
+          <tr><td><strong>T28</strong></td><td>非 team 成员 push 返回 <code>403 not_team_member</code>。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td><strong>T29</strong></td><td>同一 <code>(git_host, git_owner, git_repo)</code> 在第二个 team 下 push 返回 <code>409 project_conflict</code>。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td><strong>T30</strong></td><td><code>DELETE /api/docs/&lt;id&gt;</code>：owner 删自己的文档成功；R2 对象、shares、docs_fts 同步清理；非 owner 非 admin 返回 403。</td><td>Integration</td><td>Miniflare + R2 mock</td></tr>
+          <tr><td><strong>T31</strong></td><td><code>DELETE /api/projects/&lt;id&gt;</code>：team admin 删除项目，级联删除 N 个文档与对应 R2 对象；非 admin 返回 403。</td><td>Integration</td><td>Miniflare + R2 mock</td></tr>
+          <tr><td><strong>T32</strong></td><td>R2 对象删除失败时回滚 D1：模拟 R2 5xx，断言 docs 行未被删除。</td><td>Integration</td><td>Miniflare + 故障注入</td></tr>
+          <tr><td><strong>T33</strong></td><td>移除最后一个 team admin 返回 400：不能移除自己若你是唯一 admin。</td><td>Integration</td><td>Miniflare + D1</td></tr>
+          <tr><td><strong>T34</strong></td><td>展示路径与 R2 key 中不出现 <code>git_owner</code>（GitHub username）；所有 doc URL 形如 <code>/d/&lt;id&gt;</code> 或 <code>/t/&lt;team&gt;/&lt;project&gt;/...</code>。</td><td>Integration</td><td>Miniflare + HTML assert</td></tr>
         </tbody>
       </table>
 
@@ -1150,6 +1157,8 @@ explicitly asked. Report the printed URL back.</code></pre>
           <tr><td>7</td><td><code>module_root</code> 剥离规则缺失。</td><td><code>source_path</code> 记录真实路径，<code>path</code> 记录剥离后的展示路径，并只校验展示路径深度。</td><td><span class="badge ok">已修订</span></td></tr>
           <tr><td>8</td><td><code>POST /api/docs</code> 合约太薄。</td><td>补 metadata schema、错误码、大小限制与 <code>429</code> 语义。</td><td><span class="badge ok">已修订</span></td></tr>
           <tr><td>9</td><td>缺容量预算。</td><td>补单文件、单项目、全站、搜索 page size 与写入速率预算。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>10</td><td>v0.4 把 GitHub username (<code>git_owner</code>) 直接当展示坐标，平台看起来像个人空间。</td><td>引入 <code>teams</code>+<code>team_members</code>+<code>projects.team_id</code>；URL/R2 key/列表全部用 <code>team-slug / project-slug</code>；git host/owner/repo 退为元数据。</td><td><span class="badge ok">v0.5 修订</span></td></tr>
+          <tr><td>11</td><td>缺文档与项目的删除能力。</td><td>新增 <code>DELETE /api/docs/&lt;id&gt;</code> 与 <code>DELETE /api/projects/&lt;id&gt;</code>；硬删除，无回收站；R2 与 D1 同事务；项目级联硬删；R2 失败回滚。</td><td><span class="badge ok">v0.5 修订</span></td></tr>
         </tbody>
       </table>
     </section>
@@ -1166,7 +1175,7 @@ explicitly asked. Report the printed URL back.</code></pre>
 
     <hr class="soft">
     <p style="color:var(--fg-muted);font-size:13px;">
-      v0.4 修订要点：关闭 Q1/Q2/Q3；明确文档 content origin 隔离；补 <code>docs.visibility</code>、PAT 表、OAuth state 表；删除 FTS trigger 矛盾；修正 <code>module_root</code> 剥离后的展示路径深度校验；补 <code>POST /api/docs</code> 合约、share token 安全规则、容量预算、独立极简阅读页与实施阻塞修订表。
+      v0.5 修订要点：引入 <code>teams</code> / <code>team_members</code> / 修改 <code>projects.team_id</code>，URL/R2 key/列表/树全部改为 <code>team-slug/project-slug</code>，git host/owner/repo 退为元数据；新增 <code>DELETE /api/docs</code> 与 <code>DELETE /api/projects</code> 硬删除合约（D1 + R2 同事务，R2 失败回滚）；CLI 增 <code>team create/list/add/remove</code>、<code>delete</code>、<code>project delete</code>；<code>.htmldock.toml</code> 增必填 <code>team</code> 字段；§7 索引页改 team 树；§8 增 T27–T34；§9 增第 10/11 条修订。
     </p>
   </main>
 </div>
