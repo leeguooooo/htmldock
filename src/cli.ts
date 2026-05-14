@@ -15,6 +15,7 @@ import {
 interface Config {
   server_url?: string;
   pat?: string;
+  personal_secret?: string;
   default_project_sync?: "off" | "on" | "ask";
 }
 
@@ -56,7 +57,7 @@ try {
   } else if (command === "whoami") {
     whoami();
   } else if (command === "--version" || command === "-v" || command === "version") {
-    console.log("htmldock 0.5.0");
+    console.log("htmldock 0.6.0");
   } else {
     usage();
     process.exit(command ? 1 : 0);
@@ -122,15 +123,25 @@ async function login(args: string[]): Promise<void> {
 
 function configCommand(args: string[]): void {
   const subcommand = args[0];
-  if (subcommand !== "set-token") {
-    throw new Error("Usage: htmldock config set-token <token> --server https://your-htmldock.example.com");
+  if (subcommand === "set-token") {
+    const token = args.find((arg, index) => index > 0 && !arg.startsWith("-"));
+    if (!token) throw new Error("Missing token");
+    const existing = readGlobalConfig();
+    const server = normalizeServer(argsValue(args, "--server") || existing.server_url || DEFAULT_SERVER);
+    writeGlobalConfig({ ...existing, server_url: server, pat: token });
+    console.log(`Configured htmldock for ${server}`);
+    return;
   }
-  const token = args.find((arg, index) => index > 0 && !arg.startsWith("-"));
-  if (!token) throw new Error("Missing token");
-  const existing = readGlobalConfig();
-  const server = normalizeServer(argsValue(args, "--server") || existing.server_url || DEFAULT_SERVER);
-  writeGlobalConfig({ ...existing, server_url: server, pat: token });
-  console.log(`Configured htmldock for ${server}`);
+  if (subcommand === "set-secret") {
+    const secret = args.find((arg, index) => index > 0 && !arg.startsWith("-"));
+    if (!secret) throw new Error("Missing secret");
+    const existing = readGlobalConfig();
+    const server = normalizeServer(argsValue(args, "--server") || existing.server_url || DEFAULT_SERVER);
+    writeGlobalConfig({ ...existing, server_url: server, personal_secret: secret });
+    console.log(`Configured personal-mode write secret for ${server}`);
+    return;
+  }
+  throw new Error("Usage: htmldock config <set-token|set-secret> <value> --server https://your-htmldock.example.com");
 }
 
 function logout(): void {
@@ -381,9 +392,13 @@ function whoami(): void {
 async function resolveInitTeam(args: string[], yes: boolean): Promise<string> {
   const configuredTeam = argsValue(args, "--team");
   if (configuredTeam) return configuredTeam;
-  if (yes) throw new Error("--team is required with --yes");
 
   const server = configuredServer(args);
+  const mode = await probeServerMode(server);
+  if (mode === "personal") return "personal";
+
+  if (yes) throw new Error("--team is required with --yes");
+
   const payload = await apiFetch(server, "/api/teams", { method: "GET" });
   const teams = normalizeList(payload, "teams");
   if (teams.length === 0) {
@@ -404,16 +419,28 @@ async function resolveInitTeam(args: string[], yes: boolean): Promise<string> {
   return String(team.slug);
 }
 
+async function probeServerMode(server: string): Promise<"personal" | "team"> {
+  try {
+    const response = await fetch(`${server}/api/mode`);
+    if (!response.ok) return "team";
+    const payload = (await response.json().catch(() => null)) as { mode?: string } | null;
+    return payload?.mode === "personal" ? "personal" : "team";
+  } catch {
+    return "team";
+  }
+}
+
 async function apiFetch(server: string, path: string, init: RequestInit): Promise<any> {
   const config = readGlobalConfig();
-  if (!config.pat) throw new Error(`Missing pat in ${CONFIG_PATH}. Run "htmldock login".`);
-  const response = await fetch(`${server}${path}`, {
-    ...init,
-    headers: {
-      ...(init.headers || {}),
-      Authorization: `Bearer ${config.pat}`
-    }
-  });
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined || {}) };
+  if (config.personal_secret) {
+    headers["X-Personal-Secret"] = config.personal_secret;
+  } else if (config.pat) {
+    headers["Authorization"] = `Bearer ${config.pat}`;
+  } else {
+    throw new Error(`Missing pat or personal_secret in ${CONFIG_PATH}. Run "htmldock login" (team mode) or "htmldock config set-secret <key>" (personal mode).`);
+  }
+  const response = await fetch(`${server}${path}`, { ...init, headers });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(formatApiError(payload, response.status));
   return payload;
@@ -480,6 +507,7 @@ function writeGlobalConfig(config: Config): void {
   const lines = [
     `server_url = "${config.server_url || DEFAULT_SERVER}"`,
     config.pat ? `pat = "${config.pat}"` : "",
+    config.personal_secret ? `personal_secret = "${config.personal_secret}"` : "",
     config.default_project_sync ? `default_project_sync = "${config.default_project_sync}"` : ""
   ].filter(Boolean);
   writeFileSync(CONFIG_PATH, `${lines.join("\n")}\n`);

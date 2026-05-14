@@ -26,6 +26,45 @@ interface Env {
   LARK_CLIENT_ID?: string;
   LARK_CLIENT_SECRET?: string;
   LARK_REDIRECT_ALLOWLIST?: string;
+  /** Personal mode: single-user instance, no OAuth, reads open, writes gated by PERSONAL_WRITE_SECRET. */
+  PERSONAL_MODE?: string;
+  PERSONAL_WRITE_SECRET?: string;
+}
+
+const PERSONAL_USER_ID = 1;
+const PERSONAL_TEAM_SLUG = "personal";
+
+function isPersonalMode(env: Env): boolean {
+  return env.PERSONAL_MODE === "true";
+}
+
+async function ensurePersonalSeed(env: Env): Promise<void> {
+  if (!isPersonalMode(env)) return;
+  const now = unixNow();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO users (id, lark_open_id, email, name, created_at) VALUES (?, 'personal-local', 'personal@local', 'Personal', ?)`
+    ).bind(PERSONAL_USER_ID, now),
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO teams (slug, name, created_by, created_at) VALUES (?, 'Personal', ?, ?)`
+    ).bind(PERSONAL_TEAM_SLUG, PERSONAL_USER_ID, now),
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO team_members (team_id, user_id, role, added_at)
+       SELECT teams.id, ?, 'admin', ? FROM teams WHERE teams.slug = ?`
+    ).bind(PERSONAL_USER_ID, now, PERSONAL_TEAM_SLUG)
+  ]);
+}
+
+function personalWriteAuthorized(request: Request, env: Env): boolean {
+  if (!isPersonalMode(env)) return false;
+  const secret = env.PERSONAL_WRITE_SECRET;
+  if (!secret) return true;
+  const provided = request.headers.get("X-Personal-Secret") || "";
+  return provided === secret;
+}
+
+function isSafeMethod(method: string): boolean {
+  return method === "GET" || method === "HEAD" || method === "OPTIONS";
 }
 
 interface TokenUser {
@@ -137,11 +176,24 @@ export default {
 };
 
 async function route(request: Request, env: Env): Promise<Response> {
+  await ensurePersonalSeed(env);
   const url = new URL(request.url);
   const path = url.pathname;
 
   if (request.method === "GET" && path === "/health") {
     return json({ ok: true, service: "htmldock" });
+  }
+
+  if (request.method === "GET" && path === "/api/mode") {
+    return json({
+      mode: isPersonalMode(env) ? "personal" : "team",
+      requires_write_secret: isPersonalMode(env) && Boolean(env.PERSONAL_WRITE_SECRET),
+      personal_team_slug: isPersonalMode(env) ? PERSONAL_TEAM_SLUG : null
+    });
+  }
+
+  if (isPersonalMode(env) && !isSafeMethod(request.method) && path.startsWith("/api/") && !personalWriteAuthorized(request, env)) {
+    return apiError("unauthorized", "X-Personal-Secret header is required for writes on this personal-mode instance", 401);
   }
 
   if (request.method === "GET" && (path === "/" || path === "/dashboard")) {
@@ -831,13 +883,15 @@ async function openPrivateDoc(docId: number, request: Request, env: Env): Promis
   ).bind(docId).first<{ id: number; visibility: Visibility; owner_user_id: number | null; team_id: number }>();
   if (!doc) return html("<h1>Not found</h1>", 404);
 
-  if (doc.visibility === "private-strict") {
-    if (doc.owner_user_id !== user.user_id) return html("<h1>Forbidden</h1>", 403);
-  } else {
-    const member = await env.DB.prepare(
-      "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?"
-    ).bind(doc.team_id, user.user_id).first<{ 1: number }>();
-    if (!member && doc.owner_user_id !== user.user_id) return html("<h1>Forbidden</h1>", 403);
+  if (!isPersonalMode(env)) {
+    if (doc.visibility === "private-strict") {
+      if (doc.owner_user_id !== user.user_id) return html("<h1>Forbidden</h1>", 403);
+    } else {
+      const member = await env.DB.prepare(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?"
+      ).bind(doc.team_id, user.user_id).first<{ 1: number }>();
+      if (!member && doc.owner_user_id !== user.user_id) return html("<h1>Forbidden</h1>", 403);
+    }
   }
   const token = await signViewToken(
     { doc_id: docId, user_id: user.user_id, exp: unixNow() + 60, nonce: randomToken(8) },
@@ -997,6 +1051,12 @@ async function isTeamAdmin(db: D1Database, teamId: number, userId: number): Prom
 }
 
 async function authenticate(request: Request, env: Env, scope: string): Promise<TokenUser | Response> {
+  if (isPersonalMode(env)) {
+    if (!personalWriteAuthorized(request, env)) {
+      return apiError("unauthorized", "X-Personal-Secret header is required for writes on this personal-mode instance", 401);
+    }
+    return { user_id: PERSONAL_USER_ID, scopes: [...ALL_PAT_SCOPES] };
+  }
   const auth = request.headers.get("Authorization") || "";
   const token = auth.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return apiError("unauthorized", "Unauthorized", 401);
@@ -1016,6 +1076,9 @@ async function authenticate(request: Request, env: Env, scope: string): Promise<
 }
 
 async function currentActor(request: Request, env: Env): Promise<TokenUser | Response> {
+  if (isPersonalMode(env)) {
+    return { user_id: PERSONAL_USER_ID, scopes: [...ALL_PAT_SCOPES] };
+  }
   const auth = request.headers.get("Authorization") || "";
   const token = auth.match(/^Bearer\s+(.+)$/i)?.[1];
   if (token) {
@@ -1072,6 +1135,7 @@ async function currentUser(request: Request, env: Env): Promise<null | { id: num
 }
 
 async function sessionUser(request: Request, env: Env): Promise<null | { user_id: number }> {
+  if (isPersonalMode(env)) return { user_id: PERSONAL_USER_ID };
   const cookie = request.headers.get("Cookie") || "";
   const session = cookie
     .split(";")
