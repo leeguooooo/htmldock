@@ -1064,6 +1064,54 @@ explicitly asked. Report the printed URL back.</code></pre>
       <div class="callout">
         <strong>Recommendation: Layout A because</strong> htmldock 的主要使用场景是"快速找到最近生成/更新的文档"，不是先选择项目再进入。三栏工作台把项目树、recent updates、my docs 放在同一屏，适合团队内部高频浏览；100+ docs 的项目通过左侧计数和"Show all 147 →"渐进展开。
       </div>
+
+      <h3>Claude Design Dashboard 接入决策（v0.5）</h3>
+      <p>已收到 Claude Design 出的 <code>htmldock Dashboard.html</code>（"文档平台风" 第二版）。结合 v0.5 决策做三档分级。</p>
+
+      <h4 style="margin:18px 0 6px;color:var(--ok);">✓ 直接采纳</h4>
+      <table>
+        <thead><tr><th style="width:36%">采纳项</th><th>来源 / 替换我们的什么</th></tr></thead>
+        <tbody>
+          <tr><td>暖米白 <code>#FBF8F1</code> + 深桉绿 <code>#0F8A6C</code> 单强调色</td><td><code>styles.css :root</code>。替换当前蓝灰 <code>#2b6cb0</code>，更文档化</td></tr>
+          <tr><td>Instrument Serif 斜体 / Inter / JetBrains Mono 字体栈</td><td>衬线斜体用于品牌 + 问候点缀；UI Inter；键位 Mono</td></tr>
+          <tr><td>左侧 Teams 分组 + 文档计数 + 折叠</td><td>直接对接 v0.5 <code>teams</code> + <code>team_members</code></td></tr>
+          <tr><td>Projects 折叠卡片（caret · dot · 名 · count · 描述 · 成员 · time · ⋯）</td><td>承载 v0.5 <code>projects.team_id</code> 与 <code>team_members</code> 头像</td></tr>
+          <tr><td>Row hover actions：Open / Share / <strong>Delete</strong> / More</td><td>正好对齐 v0.5 三个 API：GET doc · POST share · DELETE doc</td></tr>
+          <tr><td>⌘K 命令面板（搜索 + 命令列表）</td><td>承载 <code>GET /api/search</code></td></tr>
+          <tr><td>顶栏：面包屑 + ⌘K 搜索 + 头像 + 衬线问候语作视觉锚点</td><td>替换 v0.3 三栏 Layout A 的搜索条</td></tr>
+          <tr><td>Tabs: <strong>Recent / Owned by me</strong></td><td>MVP 就有数据；Shared/Starred 砍掉</td></tr>
+          <tr><td>6px 彩点 + 文字 的 tag 样式</td><td>挪用作 team color 圆点</td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin:18px 0 6px;color:var(--warn);">⚙ 改造接入</h4>
+      <table>
+        <thead><tr><th style="width:36%">原项</th><th>改造方向</th></tr></thead>
+        <tbody>
+          <tr><td>Upload 按钮 / 底部 "Drag .html here · U" pill</td><td>改为 <strong>"Install CLI · Copy PAT"</strong> 入口。<strong>禁止网页直传</strong>——违反"全站动态上传单一来源"。底部 pill 改 "Last sync: X ago" 微提示或直接删</td></tr>
+          <tr><td>Today / 活动流（5 行 one-liner）</td><td>保留外壳，数据只剩 <strong>"X uploaded Y · N ago"</strong>。砍掉评论 / version / external share / push from main。可由 <code>docs ORDER BY updated_at LIMIT 5</code> 直出，<code>events</code> 表延后</td></tr>
+          <tr><td>"248 pages indexed" 数字 stats</td><td>走 D1 COUNT；"14 pages updated since you last looked" 需 <code>users.last_seen_at</code>，<strong>推迟到 v2</strong></td></tr>
+          <tr><td>Row 里的 path 显示（<code>lumen-marketing/index.html · v7</code>）</td><td>改为 <code>acme-infra / cherry / auth/login-flow.html</code>，<strong>不要 v7</strong>（原地覆盖无版本号）</td></tr>
+          <tr><td>"Shared with external · 7d" badge</td><td>保留 TTL 显示（对齐 §6 默认 30 天 share TTL）；其余外部分享细节砍</td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="margin:18px 0 6px;color:var(--open);">✗ 不接入</h4>
+      <table>
+        <thead><tr><th style="width:36%">原项</th><th>冲突点</th></tr></thead>
+        <tbody>
+          <tr><td><strong>行内 iframe 实时缩略图</strong>（<code>&lt;iframe srcDoc&gt;</code>）</td><td>违反 §6 content origin 隔离；列表渲染 N 份 R2 HTML 撞 §8 容量预算。MVP <strong>改纯文本卡片</strong>，截图服务留 v2</td></tr>
+          <tr><td>Workspace 切换器（"Pearwood Studio"）</td><td>无 workspace 概念，team 已经是顶级。保留 brand <code>htmldock</code> 即可</td></tr>
+          <tr><td>Drag &amp; drop / 网页上传</td><td>违反"全站 HTML 动态上传单一来源"——只能 CLI/Skill</td></tr>
+          <tr><td>Comments / 评论 / "4 comments" / alert 红点</td><td>MVP 不做（§1 没有"在网页里编辑文档"）</td></tr>
+          <tr><td>Viewer presence / 头像堆 / 在线脉冲</td><td>要 WebSocket / Durable Objects，MVP 之外</td></tr>
+          <tr><td>Star / Starred tab</td><td>新表新功能，不在 MVP</td></tr>
+          <tr><td>Trash / Inbox</td><td>Q5 硬删除无回收站；评论通知队列推迟</td></tr>
+          <tr><td>Storage 配额条 "4.2 GB of 10 GB"</td><td>Cloudflare 按量计费，无用户配额。若要可改为 team 信息性统计</td></tr>
+          <tr><td>版本号（v7 · v12 · pushed from main）</td><td>Q1 R2 原地覆盖，不保留版本</td></tr>
+          <tr><td>多色 tag 系统（Landing / Dashboard / Email / Report）</td><td>文档标签系统是新功能，推迟到 v2</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <!-- ==================== §8 ==================== -->
