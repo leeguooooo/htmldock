@@ -65,12 +65,13 @@ describe("renderDashboard", () => {
     expect(html).toContain("#0F8A6C");
     expect(html).toContain("<title>htmldock");
     expect(html).toContain("acme-infra");
-    expect(html).toContain("acme-billing");
+    expect(html).toContain("Acme Billing");
     expect(html).toContain("Auth login flow");
     expect(html).toContain("R2 upload contract");
-    expect(html).toContain("Recent");
-    expect(html).toContain("Owned");
-    expect(html).toMatch(/acme-infra \/ cherry \/ auth\/login-flow\.html/);
+    expect(html).toContain("Welcome back");
+    expect(html).toContain("htmldock CLI");
+    expect(html).toContain("Today");
+    expect(html).toMatch(/acme-infra.*cherry.*auth\/login-flow\.html/s);
   });
 
   test("excludes deferred or unsafe UI concepts", () => {
@@ -78,5 +79,38 @@ describe("renderDashboard", () => {
     expect(html).not.toMatch(/drag and drop|draganddrop/i);
     expect(html).not.toMatch(/v7/i);
     expect(html).not.toMatch(/\bcomments\b/i);
+    expect(html).not.toContain('href="/install"');
+    expect(html).not.toContain('href="/settings"');
+  });
+
+  test("keeps legacy-only workspaces out of the primary timeline", () => {
+    const legacyOnly = renderDashboard({
+      ...fixture,
+      teams: [{ slug: "legacy", name: "Legacy", docCount: 1, color: "#A89F8A", expanded: false }],
+      projects: [{
+        id: 2,
+        teamSlug: "legacy",
+        slug: "old-project",
+        name: "Old project",
+        description: "",
+        color: "#A89F8A",
+        docCount: 1,
+        members: [],
+        updatedRel: "12m ago",
+        rows: []
+      }],
+      recent: [{
+        id: 99,
+        title: "Smoke fixture",
+        pathLabel: "old-project / verify/smoke.html",
+        owner: { name: "Leo", initials: "LG", color: "#CFE3D7" },
+        whenRel: "12m ago"
+      }],
+      totals: { pages: 1, teams: 1, updatedToday: 1 }
+    });
+
+    expect(legacyOnly).toContain("Now connect a project");
+    expect(legacyOnly).toContain("Archive");
+    expect(legacyOnly).not.toContain("Smoke fixture");
   });
 });
