@@ -38,15 +38,37 @@ fi
 
 ## Upload Workflow
 
-1. Confirm the target repo has `.htmldock.toml`. If it does not, run `htmldock init` once from the repo.
-2. Keep the published file path at three display segments or fewer after `module_root` is removed.
-3. Upload with:
+1. Confirm the target repo has `.htmldock.toml`. If it does not, run `htmldock init` once from the repo. **`team` is required** in `.htmldock.toml`; ask the user which team this repo belongs to, or run `htmldock team list` to see joined teams.
+2. **Before writing the HTML**, run `htmldock list --tree` for the current project to see the existing module tree. **Reuse existing module prefixes** (`auth/`, `billing/`, `infra/`) rather than inventing synonyms (`authentication/`, `infrastructure/`).
+3. Keep the published file path at **three display segments or fewer** after `module_root` is removed:
+   - ✓ `auth-redesign.html` (1 level)
+   - ✓ `auth/login-flow.html` (2 levels)
+   - ✓ `auth/oauth/lark-integration.html` (3 levels)
+   - ✗ `auth/oauth/lark/v2/proposal.html` — server rejects with `path_too_deep`
+4. Upload with:
 
 ```bash
 htmldock push path/to/doc.html
 ```
 
 Use `--public` only when the document is safe to share by public token.
+
+## Team Workflow
+
+```bash
+htmldock team create acme-infra "Acme Infrastructure"  # create team (you become admin)
+htmldock team list                                      # list teams you joined
+htmldock team add acme-infra alice@example.com          # admin: invite member
+```
+
+## Deleting Documents
+
+Hard delete — no recycle bin, not recoverable:
+
+```bash
+htmldock delete <doc-id>                  # delete one doc (you own it, or you are team admin)
+htmldock project delete acme-infra/cherry --yes  # delete whole project (team admin only)
+```
 
 ## Token Setup
 

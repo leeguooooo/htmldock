@@ -66,6 +66,14 @@ export function r2Key(project: ProjectCoordinate, path: string): string {
   return `${project.host}/${project.owner}/${project.repo}/${path}`;
 }
 
+export function teamProjectR2Key(teamSlug: string, projectSlug: string, path: string): string {
+  return `t/${teamSlug}/${projectSlug}/${path}`;
+}
+
+export function isValidSlug(value: string): boolean {
+  return /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(value);
+}
+
 export function extractTitle(html: string, fallback: string): string {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   if (!match) return fallback;

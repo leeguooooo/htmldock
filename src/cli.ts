@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, relative, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import {
   assertDisplayPath,
   deriveDisplayPath,
@@ -18,6 +19,8 @@ interface Config {
 }
 
 interface ProjectConfig {
+  team?: string;
+  project_slug?: string;
   sync?: boolean;
   visibility?: Visibility;
   module_root?: string;
@@ -29,7 +32,7 @@ const [command, ...args] = Bun.argv.slice(2);
 
 try {
   if (command === "init") {
-    init(args.includes("--yes"));
+    await init(args);
   } else if (command === "login") {
     await login(args);
   } else if (command === "config") {
@@ -40,6 +43,12 @@ try {
     await push(args);
   } else if (command === "list") {
     await list(args);
+  } else if (command === "team") {
+    await teamCommand(args);
+  } else if (command === "delete") {
+    await deleteDoc(args);
+  } else if (command === "project") {
+    await projectCommand(args);
   } else if (command === "share") {
     await share(args);
   } else if (command === "open") {
@@ -47,7 +56,7 @@ try {
   } else if (command === "whoami") {
     whoami();
   } else if (command === "--version" || command === "-v" || command === "version") {
-    console.log("htmldock 0.1.0");
+    console.log("htmldock 0.5.0");
   } else {
     usage();
     process.exit(command ? 1 : 0);
@@ -57,15 +66,19 @@ try {
   process.exit(1);
 }
 
-function init(yes: boolean): void {
+async function init(args: string[]): Promise<void> {
+  const yes = args.includes("--yes");
   const root = git("rev-parse --show-toplevel", process.cwd());
   const path = `${root}/.htmldock.toml`;
   if (existsSync(path) && !yes) {
     throw new Error(".htmldock.toml already exists");
   }
+
+  const team = await resolveInitTeam(args, yes);
+  const projectSlug = argsValue(args, "--project-slug") || basename(root);
   writeFileSync(
     path,
-    `sync = true\nvisibility = "team"\ndefault_owner = ""\nmodule_root = ""\nignore = ["draft/**", "scratch/*.html"]\nauto_module = true\n`
+    `team = "${team}"\nproject_slug = "${projectSlug}"\nsync = true\nvisibility = "team"\ndefault_owner = ""\nmodule_root = ""\nignore = ["draft/**", "scratch/*.html"]\nauto_module = true\n`
   );
   console.log(`Wrote ${path}`);
 }
@@ -152,6 +165,10 @@ async function push(args: string[]): Promise<void> {
     }
   }
 
+  if (!projectConfig?.team) {
+    throw new Error("team is required in .htmldock.toml");
+  }
+
   const remotes = git("remote -v", root);
   const origin = remotes
     .split("\n")
@@ -169,15 +186,26 @@ async function push(args: string[]): Promise<void> {
   const title = extractTitle(html, basename(filePath));
   const visibility = args.includes("--public") ? "public-allowed" : projectConfig?.visibility || "team";
   const server = configuredServer(args);
+  const projectSlug = projectConfig.project_slug || basename(root);
+  const gitMetadata = { ...project, remote_url: origin[1] };
+
+  if (!dryRun) {
+    await apiFetch(server, "/api/projects/ensure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ team_slug: projectConfig.team, project_slug: projectSlug, git: project })
+    });
+  }
 
   const metadata = {
-    project,
+    team_slug: projectConfig.team,
+    project_slug: projectSlug,
     source_path: sourcePath,
     path: displayPath,
     title,
     sha256,
     visibility,
-    remote: { name: "origin", url: origin[1] }
+    git: gitMetadata
   };
 
   if (dryRun) {
@@ -195,6 +223,119 @@ async function push(args: string[]): Promise<void> {
     })()
   });
   console.log(`Published: ${payload.url}`);
+}
+
+async function teamCommand(args: string[]): Promise<void> {
+  const subcommand = args[0];
+  if (subcommand === "create") {
+    await teamCreate(args.slice(1));
+  } else if (subcommand === "list") {
+    await teamList(args.slice(1));
+  } else if (subcommand === "add") {
+    await teamAdd(args.slice(1));
+  } else if (subcommand === "remove") {
+    await teamRemove(args.slice(1));
+  } else {
+    throw new Error("Usage: htmldock team <create|list|add|remove>");
+  }
+}
+
+async function teamCreate(args: string[]): Promise<void> {
+  const slug = args.find((arg) => !arg.startsWith("-"));
+  if (!slug) throw new Error("Usage: htmldock team create <slug> [name]");
+  const name = args.filter((arg) => !arg.startsWith("-")).slice(1).join(" ") || slug;
+  const server = configuredServer(args);
+  const payload = await apiFetch(server, "/api/teams", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug, name })
+  });
+  const team = payload.team || payload;
+  console.log(`✓ Created team: ${team.slug || slug}`);
+}
+
+async function teamList(args: string[]): Promise<void> {
+  const server = configuredServer(args);
+  const payload = await apiFetch(server, "/api/teams", { method: "GET" });
+  const teams = normalizeList(payload, "teams");
+  if (args.includes("--json")) {
+    console.log(JSON.stringify(teams, null, 2));
+    return;
+  }
+  for (const team of teams) {
+    console.log(`${team.slug || ""}\t${team.role || ""}\t${team.name || ""}`);
+  }
+}
+
+async function teamAdd(args: string[]): Promise<void> {
+  const values = args.filter((arg) => !arg.startsWith("-"));
+  const [slug, email] = values;
+  if (!slug || !email) throw new Error("Usage: htmldock team add <slug> <email> [--role admin|member]");
+  const role = argsValue(args, "--role") || "member";
+  if (role !== "admin" && role !== "member") throw new Error("--role must be admin or member");
+  const server = configuredServer(args);
+  await apiFetch(server, `/api/teams/${encodeURIComponent(slug)}/members`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role })
+  });
+  console.log(`✓ Added ${email} to ${slug} as ${role}`);
+}
+
+async function teamRemove(args: string[]): Promise<void> {
+  const values = args.filter((arg) => !arg.startsWith("-"));
+  const [slug, email] = values;
+  if (!slug || !email) throw new Error("Usage: htmldock team remove <slug> <email> [--yes]");
+  await confirmDangerousAction(args, `Remove ${email} from ${slug}?`);
+  const server = configuredServer(args);
+  const payload = await apiFetch(server, `/api/teams/${encodeURIComponent(slug)}/members`, { method: "GET" });
+  const members = normalizeList(payload, "members");
+  const member = members.find((item) => item.email === email || item.user?.email === email);
+  const userId = member?.user_id || member?.id || member?.user?.id;
+  if (!userId) throw new Error(`No team member found for ${email}`);
+  await apiFetch(server, `/api/teams/${encodeURIComponent(slug)}/members/${encodeURIComponent(String(userId))}`, {
+    method: "DELETE"
+  });
+  console.log(`✓ Removed ${email} from ${slug}`);
+}
+
+async function deleteDoc(args: string[]): Promise<void> {
+  const docId = args.find((arg) => !arg.startsWith("-"));
+  if (!docId) throw new Error("Usage: htmldock delete <doc-id> [--yes]");
+  await confirmDangerousAction(args, `Hard delete document ${docId}?`);
+  const server = configuredServer(args);
+  await apiFetch(server, `/api/docs/${encodeURIComponent(docId)}`, {
+    method: "DELETE",
+    headers: { "X-Confirm": "yes" }
+  });
+  console.log(`✓ Deleted document ${docId}`);
+}
+
+async function projectCommand(args: string[]): Promise<void> {
+  if (args[0] !== "delete") {
+    throw new Error("Usage: htmldock project delete <team-slug>/<project-slug> [--yes]");
+  }
+  await deleteProject(args.slice(1));
+}
+
+async function deleteProject(args: string[]): Promise<void> {
+  const coordinate = args.find((arg) => !arg.startsWith("-"));
+  const [teamSlug, projectSlug] = coordinate?.split("/") || [];
+  if (!teamSlug || !projectSlug) throw new Error("Usage: htmldock project delete <team-slug>/<project-slug> [--yes]");
+  await confirmDangerousAction(args, `Hard delete project ${teamSlug}/${projectSlug} and all documents?`);
+  const server = configuredServer(args);
+  const payload = await apiFetch(
+    server,
+    `/api/projects?team_slug=${encodeURIComponent(teamSlug)}&project_slug=${encodeURIComponent(projectSlug)}`,
+    { method: "GET" }
+  );
+  const project = payload.project || normalizeList(payload, "projects")[0];
+  if (!project?.id) throw new Error(`Project not found: ${teamSlug}/${projectSlug}`);
+  await apiFetch(server, `/api/projects/${encodeURIComponent(String(project.id))}`, {
+    method: "DELETE",
+    headers: { "X-Confirm": "yes" }
+  });
+  console.log(`✓ Deleted project ${teamSlug}/${projectSlug}`);
 }
 
 async function list(args: string[]): Promise<void> {
@@ -237,6 +378,32 @@ function whoami(): void {
   console.log(JSON.stringify({ server_url: config.server_url, has_pat: Boolean(config.pat) }, null, 2));
 }
 
+async function resolveInitTeam(args: string[], yes: boolean): Promise<string> {
+  const configuredTeam = argsValue(args, "--team");
+  if (configuredTeam) return configuredTeam;
+  if (yes) throw new Error("--team is required with --yes");
+
+  const server = configuredServer(args);
+  const payload = await apiFetch(server, "/api/teams", { method: "GET" });
+  const teams = normalizeList(payload, "teams");
+  if (teams.length === 0) {
+    throw new Error('Run "htmldock team create <slug>" first');
+  }
+  if (!process.stdin.isTTY) {
+    throw new Error("--team is required in non-interactive init");
+  }
+
+  console.log("Teams:");
+  teams.forEach((team, index) => {
+    console.log(`${index + 1}. ${team.slug}${team.role ? ` (${team.role})` : ""}${team.name ? ` - ${team.name}` : ""}`);
+  });
+  const answer = await promptLine(`Choose team [1-${teams.length}]: `);
+  const index = Number(answer) - 1;
+  const team = teams[index];
+  if (!team?.slug) throw new Error("Invalid team selection");
+  return String(team.slug);
+}
+
 async function apiFetch(server: string, path: string, init: RequestInit): Promise<any> {
   const config = readGlobalConfig();
   if (!config.pat) throw new Error(`Missing pat in ${CONFIG_PATH}. Run "htmldock login".`);
@@ -248,8 +415,54 @@ async function apiFetch(server: string, path: string, init: RequestInit): Promis
     }
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(JSON.stringify(payload));
+  if (!response.ok) throw new Error(formatApiError(payload, response.status));
   return payload;
+}
+
+function normalizeList(payload: any, key: string): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.[key])) return payload[key];
+  return [];
+}
+
+async function confirmDangerousAction(args: string[], message: string): Promise<void> {
+  if (args.includes("--yes")) return;
+  if (!process.stdin.isTTY) throw new Error("Pass --yes to skip confirmation");
+  const answer = await promptLine(`${message} Type "yes" to continue: `);
+  if (answer.trim().toLowerCase() !== "yes") throw new Error("Cancelled");
+}
+
+async function promptLine(question: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return await rl.question(question);
+  } finally {
+    rl.close();
+  }
+}
+
+function formatApiError(payload: any, status: number): string {
+  const code = typeof payload?.code === "string" ? payload.code : "";
+  const fallback = typeof payload?.message === "string" ? payload.message : `Request failed with HTTP ${status}`;
+  const message = code ? humanErrorMessage(code, fallback) : fallback;
+  return code ? `${message} [${code}]` : message;
+}
+
+function humanErrorMessage(code: string, fallback: string): string {
+  switch (code) {
+    case "team_not_found":
+      return 'Team not found. Run "htmldock team create <slug>" first or ask an admin to invite you.';
+    case "not_team_member":
+      return "You are not a member of this team.";
+    case "project_conflict":
+      return "This git repository is already bound to another team or project.";
+    case "last_admin":
+      return "Cannot remove the last admin from the team.";
+    case "confirm_required":
+      return "Confirmation is required. Pass --yes to skip confirmation.";
+    default:
+      return fallback;
+  }
 }
 
 function configuredServer(args: string[]): string {
@@ -317,5 +530,5 @@ function git(command: string, cwd: string): string {
 }
 
 function usage(): void {
-  console.error("Usage: htmldock <init|login|config|logout|push|list|share|open|whoami>");
+  console.error("Usage: htmldock <init|login|config|logout|push|list|team|delete|project|share|open|whoami>");
 }
