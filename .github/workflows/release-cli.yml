@@ -1,0 +1,29 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun test
+      - run: bunx tsc --noEmit
+      - run: bash scripts/build-release.sh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/htmldock-darwin-arm64
+            dist/htmldock-darwin-x64
+            dist/htmldock-linux-x64
+            dist/SHA256SUMS

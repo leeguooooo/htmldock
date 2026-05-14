@@ -10,3 +10,9 @@ Thumbs.db
 
 # Local agent caches
 .omx/
+
+# Tooling/build outputs
+.wrangler/
+node_modules/
+dist/
+*.tsbuildinfo

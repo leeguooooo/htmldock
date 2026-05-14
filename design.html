@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>htmldock 设计稿（v0.3）</title>
+<title>htmldock 设计稿（v0.5）</title>
 <style>
   :root {
     --fg: #1a1a1a;
@@ -201,22 +201,23 @@
       <li><a href="#s4">§4 CLI 设计</a></li>
       <li><a href="#s5">§5 Skill / Hook 机制</a></li>
       <li><a href="#s6">§6 认证流程</a></li>
-      <li><a href="#s7">§7 索引页 UX</a></li>
+      <li><a href="#s7">§7 阅读页 / 索引页 UX</a></li>
       <li><a href="#s8">§8 错误处理 &amp; 测试</a></li>
-      <li><a href="#open">开放问题</a></li>
+      <li><a href="#s9">§9 实施阻塞修订</a></li>
+      <li><a href="#open">已关闭问题</a></li>
     </ol>
     <h2 style="margin-top:24px;">图例</h2>
     <p style="font-size:12.5px;line-height:1.8;margin:0;color:var(--fg-muted);">
       <span class="badge ok">已确认</span>&nbsp; 用户已点头<br>
-      <span class="badge warn">建议</span>&nbsp; 我的默认推荐<br>
-      <span class="badge open">待定</span>&nbsp; 等你回答
+      <span class="badge warn">风险</span>&nbsp; 需要实现时重点验证<br>
+      <span class="badge open">保留</span>&nbsp; 后续版本扩展点
     </p>
   </aside>
 
   <main>
     <header class="title">
       <h1>htmldock：团队 HTML 文档基站</h1>
-      <div class="meta">设计稿 · v0.3 · 2026-05-14 · 项目改名 + 项目级开关 + 模块树规则 + R2/FTS 修订</div>
+      <div class="meta">设计稿 · v0.5 · 2026-05-14 · team/group 取代 owner 成为项目维度 · 硬删除文档与项目</div>
     </header>
 
     <!-- ==================== Confirmed ==================== -->
@@ -229,12 +230,15 @@
           <tr><td>受众</td><td>团队私有 + 可生成公开分享链接（Notion 模式）</td><td><span class="badge ok">已确认</span></td></tr>
           <tr><td>同步方式</td><td>Skill / Hook 中间件，生成 HTML 即上传</td><td><span class="badge ok">已确认</span></td></tr>
           <tr><td>认证（MVP）</td><td>仅 <strong>Lark OAuth</strong>。浏览器走 Lark session cookie，CLI 走 PAT。Cloudflare Access SSO 推迟到后续迭代</td><td><span class="badge ok">已确认</span></td></tr>
-          <tr><td>路径维度</td><td>按项目（GitHub host/owner/repo 作为坐标），归属人作为元数据</td><td><span class="badge ok">已确认</span></td></tr>
-          <tr><td>MVP 范围</td><td>上传 · 浏览 · Lark 登录 · 归属人 · 公开分享 · 全文搜索</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>项目维度</td><td><strong>team / project</strong> 是展示维度。<code>git host/owner/repo</code> 退为元数据仅供 CLI 匹配；URL/列表/树都基于 <code>team-slug / project-slug</code>。Git 用户名不进任何展示路径</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>团队创建</td><td>任意登录用户可 <code>htmldock team create &lt;slug&gt;</code>，创建者自动成为 admin；其他成员由 admin 邀请加入</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>删除语义</td><td><strong>硬删除</strong>：<code>DELETE /api/docs/&lt;id&gt;</code> 同时清 D1 + R2 + shares 撤销；<code>DELETE /api/projects/&lt;id&gt;</code> 级联硬删该项目下所有文档。无回收站、不可恢复</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>MVP 范围</td><td>上传 · 按 team/project 浏览 · Lark 登录 · 归属人 · 公开分享 · 全文搜索 · 删除</td><td><span class="badge ok">已确认</span></td></tr>
           <tr><td>技术栈</td><td>Cloudflare 全栈（Workers + R2 + D1 + Pages）</td><td><span class="badge ok">已确认</span></td></tr>
           <tr><td>核心原则</td><td><strong>全站 HTML 内容均为动态上传</strong>。平台不托管任何静态作者内容；索引页由 Worker 从 D1 渲染</td><td><span class="badge ok">已确认</span></td></tr>
-          <tr><td>项目级同步开关</td><td><strong>默认 opt-in</strong>：只有项目根存在 <code>.htmldock.toml</code> 且 <code>sync = true</code> 才上传</td><td><span class="badge warn">建议</span> · 见 Q2</td></tr>
-          <tr><td>模块树深度</td><td>硬上限 <strong>3 级</strong>（含文件名）。Skill 指导 agent 主动选择模块前缀</td><td><span class="badge warn">建议</span> · 见 Q3</td></tr>
+          <tr><td>阅读页形态</td><td>打开文档时进入独立阅读页，不进入复杂工作台；页面最多有一个很小的导航条，HTML 内容保留自己的样式，不写平台样式限制</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>项目级同步开关</td><td><strong>默认 opt-in</strong>：只有项目根存在 <code>.htmldock.toml</code> 且 <code>sync = true</code> 才上传；<code>ask</code> 只允许前台 TTY，Hook 路径禁用 <code>ask</code></td><td><span class="badge ok">已确认</span> · Q2</td></tr>
+          <tr><td>模块树深度</td><td>展示路径硬上限 <strong>3 级</strong>（含文件名）。若配置 <code>module_root</code>，先剥离 <code>module_root</code> 后再校验深度</td><td><span class="badge ok">已确认</span> · Q3</td></tr>
         </tbody>
       </table>
       <div class="callout">
@@ -247,6 +251,10 @@
     <section id="s1">
       <h2>§1 整体架构</h2>
       <p>两条独立访问路径：团队成员凭 Lark session cookie 看私有文档；外部通过 <code>/p/&lt;token&gt;</code> 看公开分享，Worker 自验签，不依赖 session。</p>
+
+      <div class="callout warn">
+        <strong>安全边界：</strong>上传的 HTML 绝不能和应用/API session cookie 同源直出。应用/API 使用 <code>app</code> origin；文档内容使用独立 <code>content</code> origin。<code>/d/&lt;doc-id&gt;</code> 先在应用 origin 校验 session，再签发短期 view token 跳转到 content origin；content origin 不带 session cookie、不开私有 API，只返回极简阅读页外壳，并在其中加载原始 HTML。公开分享 <code>/p/&lt;token&gt;</code> 也走 content origin，并默认返回 <code>Referrer-Policy: no-referrer</code> 与 <code>X-Robots-Tag: noindex</code>。
+      </div>
 
       <div class="arch">
         <svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg">
@@ -290,7 +298,7 @@
           <!-- Workers -->
           <rect class="box-accent" x="200" y="260" width="500" height="120" rx="8"/>
           <text class="label" x="450" y="285" text-anchor="middle">Cloudflare Workers · Hono</text>
-          <text class="sub"   x="450" y="307" text-anchor="middle">POST /api/docs     ·  GET /api/docs?project=…</text>
+          <text class="sub"   x="450" y="307" text-anchor="middle">POST/DELETE /api/docs · /api/projects · /api/teams</text>
           <text class="sub"   x="450" y="325" text-anchor="middle">GET /api/auth/lark  ·  POST /api/share</text>
           <text class="sub"   x="450" y="343" text-anchor="middle">GET /api/search    ·  GET /p/&lt;token&gt;</text>
           <text class="sub"   x="450" y="365" text-anchor="middle" style="fill:#9b2c2c">私有路径需 session · /p/&lt;token&gt; 仅查 shares 表</text>
@@ -299,13 +307,13 @@
           <rect class="box" x="120" y="420" width="200" height="80" rx="8"/>
           <text class="label" x="220" y="448" text-anchor="middle">R2</text>
           <text class="sub"   x="220" y="468" text-anchor="middle">HTML 原文件</text>
-          <text class="sub"   x="220" y="486" text-anchor="middle">key = host/owner/repo/&lt;path&gt;</text>
+          <text class="sub"   x="220" y="486" text-anchor="middle">key = t/&lt;team&gt;/&lt;project&gt;/&lt;path&gt;</text>
 
           <!-- D1 -->
           <rect class="box" x="580" y="420" width="200" height="80" rx="8"/>
           <text class="label" x="680" y="448" text-anchor="middle">D1 (SQLite)</text>
-          <text class="sub"   x="680" y="468" text-anchor="middle">projects · docs · users</text>
-          <text class="sub"   x="680" y="486" text-anchor="middle">shares · docs_fts (FTS5)</text>
+          <text class="sub"   x="680" y="468" text-anchor="middle">teams · team_members · projects</text>
+          <text class="sub"   x="680" y="486" text-anchor="middle">docs · users · shares · docs_fts</text>
 
           <!-- Arrows -->
           <path class="arrow" d="M140 90 L150 135"/>
@@ -332,23 +340,48 @@
     <section id="s2">
       <h2>§2 数据模型</h2>
       <h3>D1 表结构（SQL）</h3>
-<pre><code>-- 项目坐标（来自 git remote 解析）
+<pre><code>-- 团队：展示维度，是 URL/列表/树/搜索筛选的根
+teams (
+  id            INTEGER PRIMARY KEY,
+  slug          TEXT UNIQUE NOT NULL,  -- url-safe kebab-case，如 acme-infra
+  name          TEXT NOT NULL,          -- 显示名，如 "Acme Infrastructure"
+  created_by    INTEGER REFERENCES users(id),
+  created_at    INTEGER
+)
+
+team_members (
+  team_id    INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  role       TEXT NOT NULL CHECK (role IN ('admin','member')),
+  added_at   INTEGER,
+  PRIMARY KEY (team_id, user_id)
+)
+
+-- 项目：归属团队；git host/owner/repo 仅作元数据用于 CLI 匹配，不进展示
 projects (
   id            INTEGER PRIMARY KEY,
-  host          TEXT NOT NULL,      -- github.com / gitlab.com / 内网
-  owner         TEXT NOT NULL,      -- leeguoo / org
-  repo          TEXT NOT NULL,
+  team_id       INTEGER NOT NULL REFERENCES teams(id),
+  slug          TEXT NOT NULL,         -- 通常 = git repo 名；可在 .htmldock.toml 覆盖
   display_name  TEXT,
+  -- git remote 元数据（CLI 用来匹配同一项目；不参与 URL 渲染）
+  git_host      TEXT,
+  git_owner     TEXT,
+  git_repo      TEXT,
+  created_by    INTEGER REFERENCES users(id),
   created_at    INTEGER,
-  UNIQUE(host, owner, repo)
+  UNIQUE(team_id, slug),
+  UNIQUE(git_host, git_owner, git_repo)   -- 一个 git repo 只能映射到一个 platform project
 )
 
 -- 文档主表
 docs (
   id            INTEGER PRIMARY KEY,
-  project_id    INTEGER REFERENCES projects(id),
-  path          TEXT NOT NULL,      -- 项目内相对子路径，最多 3 段（含文件名），如 auth/login-flow.html
+  project_id    INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  source_path   TEXT NOT NULL,      -- repo 内真实路径，如 docs/auth/login-flow.html
+  path          TEXT NOT NULL,      -- 展示路径，先剥离 module_root，最多 3 段（含文件名）
   title         TEXT,               -- 解析 &lt;title&gt; 提取
+  visibility    TEXT NOT NULL DEFAULT 'team'
+                CHECK (visibility IN ('team','public-allowed','private-strict')),
   r2_key        TEXT NOT NULL,      -- R2 对象 key（与 path 一一对应，无 query 字符）
   owner_user_id INTEGER REFERENCES users(id),
   size_bytes    INTEGER,
@@ -364,12 +397,34 @@ users (
   email         TEXT,
   name          TEXT,
   avatar_url    TEXT,
-  pat_hash      TEXT,               -- CLI 用 PAT（SHA256 哈希存储）
   created_at    INTEGER
 )
 
+personal_access_tokens (
+  id            INTEGER PRIMARY KEY,
+  user_id       INTEGER NOT NULL REFERENCES users(id),
+  token_prefix  TEXT NOT NULL,      -- 仅用于显示/定位，如 hd_pat_ab12
+  token_hash    TEXT NOT NULL UNIQUE,
+  name          TEXT,
+  scopes        TEXT NOT NULL,      -- JSON array: ["docs:write","docs:read","share:write"]
+  last_used_at  INTEGER,
+  expires_at    INTEGER,
+  revoked_at    INTEGER,
+  created_at    INTEGER
+)
+
+oauth_states (
+  state_hash    TEXT PRIMARY KEY,
+  purpose       TEXT NOT NULL,      -- browser | cli
+  redirect_uri  TEXT NOT NULL,
+  local_cb      TEXT,               -- CLI: http://127.0.0.1:N/save
+  created_at    INTEGER,
+  expires_at    INTEGER,
+  consumed_at   INTEGER
+)
+
 shares (
-  token         TEXT PRIMARY KEY,   -- 22 字节 base64url，不可猜测
+  token         TEXT PRIMARY KEY,   -- 128-bit+ 随机熵，base64url，不可猜测
   doc_id        INTEGER REFERENCES docs(id),
   created_by    INTEGER REFERENCES users(id),
   expires_at    INTEGER,            -- NULL = 永久
@@ -380,43 +435,27 @@ shares (
 -- D1 FTS5 全文索引（content-less，rowid 与 docs.id 对齐）
 CREATE VIRTUAL TABLE docs_fts USING fts5(
   title, body_text, content=''
-);
-
--- 触发器：保证 docs_fts.rowid === docs.id
-CREATE TRIGGER docs_ai AFTER INSERT ON docs BEGIN
-  INSERT INTO docs_fts(rowid, title, body_text)
-  VALUES (new.id, new.title, extractBodyText(new.r2_key));
-END;
-CREATE TRIGGER docs_au AFTER UPDATE OF title, sha256 ON docs BEGIN
-  INSERT INTO docs_fts(docs_fts, rowid, title, body_text)
-  VALUES ('delete', old.id, old.title, '');
-  INSERT INTO docs_fts(rowid, title, body_text)
-  VALUES (new.id, new.title, extractBodyText(new.r2_key));
-END;
-CREATE TRIGGER docs_ad AFTER DELETE ON docs BEGIN
-  INSERT INTO docs_fts(docs_fts, rowid, title, body_text)
-  VALUES ('delete', old.id, old.title, '');
-END;</code></pre>
+);</code></pre>
 
       <div class="callout">
-        <strong>FTS5 同步说明：</strong><code>extractBodyText()</code> 不是真的 SQL 函数；纯文本提取（剥 HTML 标签、解 entity、压缩空白）在 Worker 端完成后随 INSERT/UPDATE 一并写入。触发器只是表达 rowid 一一对应的语义；实际写入由 Worker 在事务里做。
+        <strong>FTS5 同步说明：</strong>不使用 D1 trigger 调不存在的 <code>extractBodyText()</code>。纯文本提取（剥 HTML 标签、解 entity、压缩空白）在 Worker 端完成；<code>docs</code> 与 <code>docs_fts</code> 必须在同一个 D1 batch / transaction 语义里写入、更新或删除，保证 <code>docs_fts.rowid === docs.id</code>。
       </div>
 
-      <h3>R2 key 规则（修订自 v0.2）</h3>
-      <p>v0.2 的 <code>&lt;path&gt;?v=&lt;sha&gt;</code> 把 <code>?</code> 放进了 key，会和 URL query 语义混淆。v0.3 简化为：</p>
-      <pre><code>r2_key = "&lt;host&gt;/&lt;owner&gt;/&lt;repo&gt;/&lt;path&gt;"</code></pre>
-      <p>例：<code>github.com/leeguoo/cherry/auth/login-flow.html</code></p>
-      <p>由于 Q1 选了"原地覆盖、不留历史"（Option B），key 就是路径本身，不再带版本前缀。日后若引入 <code>doc_revisions</code>，可在历史 key 上挂时间戳前缀如 <code>_rev/&lt;doc_id&gt;/&lt;ts&gt;/...</code>，跟当前 key 不冲突。</p>
+      <h3>R2 key 规则（v0.5 改用 team/project slug）</h3>
+      <p>v0.4 用 git host/owner/repo 拼 key，会把 GitHub 用户名暴露进 R2 路径。v0.5 改为基于 <code>team-slug</code> 与 <code>project-slug</code>：</p>
+      <pre><code>r2_key = "t/&lt;team-slug&gt;/&lt;project-slug&gt;/&lt;path&gt;"</code></pre>
+      <p>例：<code>t/acme-infra/cherry/auth/login-flow.html</code></p>
+      <p>R2 key 与平台 URL 形态一致。同样 Q1 选了原地覆盖，key 就是路径本身。删除文档时，Worker 同步删除该 R2 对象；删除项目时，先 list 该项目 R2 前缀下所有对象并批量删除。<strong>slug 一旦创建不允许改名</strong>（避免 R2 大规模迁移）；改名只能"删旧建新"。</p>
 
       <div class="callout info">
-        <strong>Q1 已落定（v0.2 推荐）：</strong>R2 原地覆盖 + <code>docs</code> 仅保存当前 <code>sha256</code>，不引入 <code>doc_revisions</code>。理由：HTML 文档更新频率低、回滚价值低、R2 按对象计费、D1 schema 越简越好。
+        <strong>Q1 已落定：</strong>R2 原地覆盖 + <code>docs</code> 仅保存当前 <code>sha256</code>，不引入 <code>doc_revisions</code>。明确不承诺历史、回滚、immutable share，但保留 <code>_rev/&lt;doc_id&gt;/...</code> 命名空间作为后续扩展点。
       </div>
     </section>
 
     <!-- ==================== §3 ==================== -->
     <section id="s3">
       <h2>§3 路径坐标算法</h2>
-      <p>CLI 从 <code>git remote -v</code>、<code>git rev-parse --show-toplevel</code> 和 HTML 文件路径推导上传坐标 <code>(host, owner, repo, sub_path)</code>。其中 <code>host/owner/repo</code> 定义项目，<code>sub_path</code> 定义该 HTML 文件在项目内的位置；作者身份只作为 metadata，不参与路径坐标。</p>
+      <p>CLI 从 <code>.htmldock.toml</code>、<code>git remote -v</code>、<code>git rev-parse --show-toplevel</code> 和 HTML 文件路径推导上传坐标 <code>(team_slug, project_slug, source_path, path)</code> + git 元数据 <code>(host, owner, repo)</code>。<strong>team_slug 来自 <code>.htmldock.toml</code></strong>（必填），不从 git remote 推导；<code>project_slug</code> 默认 = git repo basename，可在 <code>.htmldock.toml</code> 覆盖；<code>git host/owner/repo</code> 仅作为元数据，用来匹配现有 platform project，并通过 <code>UNIQUE(git_host, git_owner, git_repo)</code> 防止同一 git repo 注册到两个 team。</p>
 
       <h3>输入模式与解析结果</h3>
       <table>
@@ -428,9 +467,9 @@ END;</code></pre>
           <tr><td><code>ssh://git@gitlab.internal:2222/team/sub/repo.git</code></td><td><code>gitlab.internal</code></td><td><code>team/sub</code></td><td><code>repo</code></td><td>端口不进 host 坐标，原始 remote URL 存 metadata；最后一段为 repo，前缀为 owner/group path。</td></tr>
           <tr><td>Multi-remote（origin / upstream / fork）</td><td colspan="3">按优先级选 remote 后解析</td><td>优先 <code>origin</code>；显式 <code>--remote &lt;name&gt;</code> 覆盖；都无 origin 时取第一个 fetch remote；fork 不自动并入 upstream。</td></tr>
           <tr><td>No remote（local-only repo）</td><td colspan="3">默认拒绝</td><td>MVP 默认 <strong>拒绝并报错</strong>，避免出现不可共享坐标。未来 <code>--allow-local</code> 落入 <code>local@hostname/username/DIRNAME</code>。</td></tr>
-          <tr><td>worktree</td><td colspan="3">使用主 repo remote</td><td><code>sub_path</code> 必须相对 Git repo root，不相对 worktree mount。</td></tr>
+          <tr><td>worktree</td><td colspan="3">使用主 repo remote</td><td><code>source_path</code> 必须相对 Git repo root，不相对 worktree mount。</td></tr>
           <tr><td>submodule</td><td colspan="3">用 submodule 自己的 remote</td><td>submodule 当独立 repo，不继承父 repo 坐标。</td></tr>
-          <tr><td>monorepo subdir</td><td colspan="3">用 monorepo remote</td><td><code>sub_path</code> = HTML 目录相对 repo root；文件名进 <code>docs.path</code> 末段。</td></tr>
+          <tr><td>monorepo subdir</td><td colspan="3">用 monorepo remote</td><td><code>source_path</code> = HTML 相对 repo root；若 <code>module_root = "docs"</code>，则 <code>docs/auth/a.html</code> 的展示 <code>path</code> 为 <code>auth/a.html</code>。</td></tr>
         </tbody>
       </table>
 
@@ -459,17 +498,30 @@ END;</code></pre>
   if relFile startsWith "..":
     error("File is outside repository root")
 
-  // 模块树深度校验（见 §5）
-  segments = relFile.split("/")
+  projConf = readTomlIfExists(root + "/.htmldock.toml")
+  moduleRoot = normalizeRelativeDir(projConf.module_root or "")
+  if moduleRoot and not relFile.startsWith(moduleRoot + "/"):
+    error("file_not_in_module_root")
+
+  displayPath = moduleRoot ? relFile.removePrefix(moduleRoot + "/") : relFile
+
+  // 模块树深度校验（见 §5）：校验展示路径，不校验 source_path
+  segments = displayPath.split("/")
   if segments.length &gt; 3:
     error("path_too_deep: max 3 segments including filename, got " + segments.length)
 
+  team_slug    = projConf.team
+                 or error("team is required in .htmldock.toml")
+  project_slug = projConf.project_slug or basename(root)
+
   return {
-    host:     host,
-    owner:    owner,
-    repo:     repo,
-    sub_path: dirname(relFile),
-    path:     relFile
+    team_slug:    team_slug,
+    project_slug: project_slug,
+    host:         host,
+    owner:        owner,
+    repo:         repo,
+    source_path:  relFile,
+    path:         displayPath
   }</code></pre>
     </section>
 
@@ -482,8 +534,14 @@ END;</code></pre>
       <table>
         <thead><tr><th>Command</th><th>Args</th><th>Description</th><th>常用 Flags</th></tr></thead>
         <tbody>
-          <tr><td><code>push</code></td><td><code>&lt;file&gt;</code></td><td>上传单个 HTML 文件；成功后打印可点击 URL。会检查项目级开关，未启用时直接拒绝（除非 <code>--force</code>）。</td><td><code>--force</code>, <code>--dry-run</code>, <code>--public</code>, <code>--module &lt;prefix&gt;</code></td></tr>
-          <tr><td><code>init</code></td><td>无</td><td>在当前 repo 根写入 <code>.htmldock.toml</code>（带交互问答：sync? visibility? module_root?）。</td><td><code>--yes</code>（一路默认）</td></tr>
+          <tr><td><code>push</code></td><td><code>&lt;file&gt;</code></td><td>上传单个 HTML 文件；成功后打印可点击 URL。会检查项目级开关 + team 成员资格，未启用/无权限时拒绝。</td><td><code>--force</code>, <code>--dry-run</code>, <code>--public</code>, <code>--module &lt;prefix&gt;</code></td></tr>
+          <tr><td><code>init</code></td><td>无</td><td>在当前 repo 根写入 <code>.htmldock.toml</code>，交互问答 <strong>team</strong> / sync / visibility / module_root / project_slug。team 必填，可从远端拉用户已加入的 team 列表让用户选。</td><td><code>--yes</code>（一路默认，team 必传 <code>--team &lt;slug&gt;</code>）</td></tr>
+          <tr><td><code>team create</code></td><td><code>&lt;slug&gt; [name]</code></td><td>创建 team；创建者自动成为 admin。slug 需 url-safe kebab-case，不可改名。</td><td>—</td></tr>
+          <tr><td><code>team list</code></td><td>无</td><td>列出当前用户加入的所有 team 及其角色。</td><td><code>--json</code></td></tr>
+          <tr><td><code>team add</code></td><td><code>&lt;slug&gt; &lt;lark-email&gt; [--role admin|member]</code></td><td>把用户加入 team（仅 admin 可执行）。</td><td><code>--role</code></td></tr>
+          <tr><td><code>team remove</code></td><td><code>&lt;slug&gt; &lt;lark-email&gt;</code></td><td>从 team 移除用户（仅 admin；不能移除自己若你是最后一个 admin）。</td><td>—</td></tr>
+          <tr><td><code>delete</code></td><td><code>&lt;doc-id&gt;</code></td><td>硬删除一份文档（D1 + R2 + cascading revoke shares）。需文档所有者本人或 team admin。<strong>不可恢复</strong>。</td><td><code>--yes</code>（跳过 confirm prompt）</td></tr>
+          <tr><td><code>project delete</code></td><td><code>&lt;team-slug&gt;/&lt;project-slug&gt;</code></td><td>硬删除项目及其下所有文档。需 team admin。需 <code>--yes</code> 显式确认。</td><td><code>--yes</code></td></tr>
           <tr><td><code>login</code></td><td>无</td><td>启动 Lark OAuth flow，CLI 开本地 HTTP listener 接收 PAT。</td><td><code>--server &lt;url&gt;</code></td></tr>
           <tr><td><code>logout</code></td><td>无</td><td>删除本地 config 中的 PAT。</td><td>—</td></tr>
           <tr><td><code>list</code></td><td>无</td><td>列出当前项目（或指定项目）的 docs。<code>--tree</code> 以模块树形式输出，方便 agent 复用前缀。</td><td><code>--project current|&lt;host/owner/repo&gt;</code>, <code>--tree</code>, <code>--json</code></td></tr>
@@ -510,15 +568,65 @@ ignore_patterns      = [
       <ol>
         <li>校验文件存在且后缀为 <code>.html</code>。</li>
         <li>跑 <code>git rev-parse --show-toplevel</code> 找仓库根；找不到则拒绝（非 git 文件）。</li>
-        <li>读项目级 <code>.htmldock.toml</code>（见 §5）。若不存在 → 按 <code>default_project_sync</code> 决定（默认 opt-in，未开启则 <code>exit 0</code> 并提示 <code>Run "htmldock init" to enable sync</code>）。</li>
-        <li>跑 <code>git remote -v</code>，按 §3 算 <code>(host, owner, repo, sub_path, path)</code>。</li>
-        <li>校验 <code>path</code> 段数 ≤ 3；超过 → 报 <code>path_too_deep</code> 并提示压扁建议。</li>
+        <li>读项目级 <code>.htmldock.toml</code>（见 §5）。若不存在 → 按 <code>default_project_sync</code> 决定（默认 opt-in，未开启则 <code>exit 0</code> 并提示 <code>Run "htmldock init" to enable sync</code>）。<code>team</code> 必填，缺失则拒绝。</li>
+        <li>跑 <code>git remote -v</code>，按 §3 算 <code>(team_slug, project_slug, host, owner, repo, source_path, path)</code>。</li>
+        <li>调 <code>POST /api/projects/ensure</code>：在 team_slug 下查找/创建 project_slug；若 git remote 已经绑到别的 team/project，服务端返回 <code>project_conflict</code>。校验当前用户是该 team 成员，否则 403。</li>
+        <li>校验展示 <code>path</code> 段数 ≤ 3；若配置 <code>module_root</code>，先剥离后再校验。超过 → 报 <code>path_too_deep</code> 并提示压扁建议。</li>
         <li>从 HTML 抽 <code>&lt;title&gt;</code>，回退到 filename。</li>
         <li>算 <code>sha256</code>。</li>
         <li><code>GET /api/docs/check?project=…&amp;path=…&amp;sha256=…</code>：若已存在且哈希一致 → 打印 <code>Already up to date</code> 并 <code>exit 0</code>，不更新 <code>updated_at</code>。</li>
         <li><code>POST /api/docs</code> multipart：file + metadata JSON。</li>
         <li>打印 <code>✓ Published: https://htmldock.example.com/d/&lt;doc-id&gt;</code>。</li>
       </ol>
+
+      <h3><code>POST /api/docs</code> 合约</h3>
+<pre><code>multipart/form-data
+  file: HTML file, Content-Type text/html
+  metadata: {
+    "team_slug": "acme-infra",
+    "project_slug": "cherry",
+    "source_path": "docs/auth/login-flow.html",
+    "path": "auth/login-flow.html",
+    "title": "Login flow",
+    "sha256": "hex...",
+    "visibility": "team",
+    "owner_email": "leo@acme.com",
+    "git": {
+      "host":"github.com","owner":"leeguoo","repo":"cherry",
+      "remote_url":"git@github.com:leeguoo/cherry.git"
+    }
+  }</code></pre>
+      <table>
+        <thead><tr><th>错误码</th><th>HTTP</th><th>含义</th></tr></thead>
+        <tbody>
+          <tr><td><code>invalid_metadata</code></td><td>400</td><td>metadata JSON 缺字段、字段类型错误、visibility 非法、slug 不合规。</td></tr>
+          <tr><td><code>path_too_deep</code></td><td>400</td><td>展示路径超过 3 段（含文件名）。</td></tr>
+          <tr><td><code>team_not_found</code></td><td>404</td><td><code>team_slug</code> 不存在。提示用户先 <code>htmldock team create</code> 或联系 admin 邀请。</td></tr>
+          <tr><td><code>not_team_member</code></td><td>403</td><td>用户不是该 team 成员。</td></tr>
+          <tr><td><code>project_conflict</code></td><td>409</td><td>同一 git host/owner/repo 已绑定到别的 team/project。提示用 <code>htmldock project transfer</code>（后续迭代）或先在另一处删除。</td></tr>
+          <tr><td><code>file_too_large</code></td><td>413</td><td>单个 HTML 超过 MVP 上限 2 MiB。</td></tr>
+          <tr><td><code>unauthorized</code></td><td>401</td><td>PAT 缺失、无效、过期或已撤销。</td></tr>
+          <tr><td><code>forbidden</code></td><td>403</td><td>PAT 缺少 <code>docs:write</code> 或 <code>docs:delete</code> / <code>projects:delete</code> scope。</td></tr>
+          <tr><td><code>rate_limited</code></td><td>429</td><td>用户或项目写入频率超限；响应带 <code>Retry-After</code>。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>团队与删除 API</h3>
+      <table>
+        <thead><tr><th>Method · Path</th><th>用途</th><th>权限</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/teams</code></td><td>创建 team；body：<code>{slug, name}</code>。创建者自动写入 <code>team_members</code> 为 admin。</td><td>已登录</td></tr>
+          <tr><td><code>POST /api/teams/&lt;slug&gt;/members</code></td><td>邀请成员；body：<code>{email, role}</code>。</td><td>该 team admin</td></tr>
+          <tr><td><code>DELETE /api/teams/&lt;slug&gt;/members/&lt;user-id&gt;</code></td><td>踢出成员；不能踢掉最后一个 admin。</td><td>该 team admin</td></tr>
+          <tr><td><code>POST /api/projects/ensure</code></td><td>在指定 team 下查找/创建 project；CLI <code>push</code> 内部用。</td><td>该 team 成员</td></tr>
+          <tr><td><code>DELETE /api/docs/&lt;id&gt;</code></td><td>硬删文档：从 D1 删 <code>docs</code> 行（FTS 同事务清理）、<code>shares</code> 撤销、R2 对象删除。返回 <code>204</code>。</td><td>文档 owner 或 team admin；PAT 需 <code>docs:delete</code></td></tr>
+          <tr><td><code>DELETE /api/projects/&lt;id&gt;</code></td><td>硬删项目：先 list 该 project 下所有 R2 对象批量删除（含分页），再删 docs（cascade）、再删 projects 行。返回 <code>204</code>。</td><td>team admin；PAT 需 <code>projects:delete</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>删除是终态：</strong>MVP 选择硬删除，无回收站、无 30 天宽限期。Worker 在执行 DELETE 前必须返回 <code>X-Confirm-Required</code> 提示，CLI 端默认弹 confirm；<code>--yes</code> / API 调用方需显式带 <code>X-Confirm: yes</code> 头才会真正执行。R2 对象删除失败时整个事务回滚，避免 D1 已删 / R2 仍在的孤儿。
+      </div>
 
       <h3>全局 flags</h3>
       <table>
@@ -541,6 +649,8 @@ ignore_patterns      = [
       <h3>项目级配置：<code>.htmldock.toml</code></h3>
       <p>位置：每个想接入平台的 repo 根目录。可由 <code>htmldock init</code> 交互生成。</p>
 <pre><code># &lt;repo-root&gt;/.htmldock.toml
+team           = "acme-infra"          # 必填。该 repo 归属的 team slug
+project_slug   = "cherry"              # 可选；默认 = git repo basename
 sync           = true                  # 必填。false / 缺失文件 = 不同步
 visibility     = "team"                # team | public-allowed | private-strict
 default_owner  = "leo"                 # push 时不指定 --owner 的 fallback
@@ -551,6 +661,8 @@ auto_module    = true                  # Skill 是否自动建模块树（见下
       <table>
         <thead><tr><th>字段</th><th>类型</th><th>缺省</th><th>说明</th></tr></thead>
         <tbody>
+          <tr><td><code>team</code></td><td>string</td><td><em>必填</em></td><td>该 repo 归属的 team slug。team 必须已存在；用户必须是该 team 成员。不可由 git remote 推导，必须显式声明。</td></tr>
+          <tr><td><code>project_slug</code></td><td>string</td><td>git repo basename</td><td>覆盖默认 project slug。仅在创建项目时生效；项目一旦创建不可改名。</td></tr>
           <tr><td><code>sync</code></td><td>bool</td><td><em>必填</em></td><td>本仓库是否启用同步。<code>false</code> 或文件缺失都不会上传（除 <code>--force</code>）。</td></tr>
           <tr><td><code>visibility</code></td><td>enum</td><td><code>team</code></td><td><code>team</code>: 团队内可读；<code>public-allowed</code>: 允许生成公开链接；<code>private-strict</code>: 仅作者本人可读，禁止 share。</td></tr>
           <tr><td><code>default_owner</code></td><td>string</td><td>当前 Lark 用户</td><td>push 时未传 <code>--owner</code> 的归属人。</td></tr>
@@ -581,16 +693,12 @@ auto_module    = true                  # Skill 是否自动建模块树（见下
         </tbody>
       </table>
 
-      <div class="question">
-        <h4>Q2：opt-in 还是 opt-out？</h4>
-        <ul>
-          <li>我建议默认 <strong>opt-in</strong>。是否同意？或希望走 opt-out？</li>
-          <li>全局 <code>default_project_sync</code> 是否要支持 <code>"ask"</code>（首次 push 时弹问）？</li>
-        </ul>
+      <div class="callout info">
+        <strong>Q2 已落定：</strong>默认 <strong>opt-in</strong>。<code>default_project_sync = "ask"</code> 只允许在前台 TTY 的手动 CLI 场景使用；Hook 路径必须把 <code>ask</code> 当作 <code>off</code>，避免非交互环境挂住或吞掉提示，造成用户以为已同步但实际没有上传。
       </div>
 
       <h3>模块树规则（深度 ≤ 3）</h3>
-      <p>所有上传文档的 <code>path</code> 段数（含文件名）不得超过 <strong>3</strong>。服务端 API 强校验，超出返回 <code>400 path_too_deep</code>。</p>
+      <p>所有上传文档的展示 <code>path</code> 段数（含文件名）不得超过 <strong>3</strong>。若配置 <code>module_root</code>，先从 repo 相对路径中剥离 <code>module_root</code>，再做深度校验并写入 <code>docs.path</code>；未剥离的真实 repo 路径写入 <code>docs.source_path</code>。服务端 API 强校验，超出返回 <code>400 path_too_deep</code>。</p>
 
       <div class="grid-2">
         <div class="tree-good">
@@ -611,6 +719,10 @@ auto_module    = true                  # Skill 是否自动建模块树（见下
 
       <div class="callout warn">
         <strong>语义动机：</strong>深度 ≤ 3 是为了让索引页项目树永远 1 屏可见，并强迫作者用文件名而非路径表达细分（<code>oauth/lark-integration.html</code> 比 <code>oauth/lark/integration.html</code> 信息量等价但更扁）。
+      </div>
+
+      <div class="callout info">
+        <strong>Q3 已落定：</strong>硬限 3 级，不做项目级可调深度。深度校验对象是剥离 <code>module_root</code> 后的展示路径，因此 <code>module_root = "docs"</code> 时，<code>docs/auth/oauth/lark.html</code> 合法展示为 <code>auth/oauth/lark.html</code>。
       </div>
 
       <h3>Claude Code <code>settings.json</code> Hook</h3>
@@ -639,7 +751,7 @@ if projConf is None:
   switch globalConfig.default_project_sync:
     case "off":  exit 0
     case "on":   projConf = {sync: true}
-    case "ask":  prompt user once, cache decision
+    case "ask":  exit 0   # Hook 非交互路径禁用 ask，手动 CLI 才能询问
 elif not projConf.sync:
   exit 0
 
@@ -707,6 +819,17 @@ explicitly asked. Report the printed URL back.</code></pre>
     <section id="s6">
       <h2>§6 认证流程（Lark OAuth only）</h2>
       <p>MVP 只实现 Lark OAuth。浏览器使用 session cookie，CLI 使用 Personal Access Token（PAT）。Cloudflare Access SSO 保持延期，不进入本节实现范围。</p>
+
+      <h3>Origin / cookie 边界</h3>
+      <table>
+        <thead><tr><th>Origin</th><th>职责</th><th>Cookie / API 规则</th></tr></thead>
+        <tbody>
+          <tr><td><code>app.htmldock.example.com</code></td><td>登录、索引页、私有 API、签发 view token。</td><td>设置 host-only session cookie：<code>HttpOnly; Secure; SameSite=Lax</code>，不设置 <code>Domain=.htmldock.example.com</code>。</td></tr>
+          <tr><td><code>content.htmldockusercontent.example</code></td><td>只按短期 view token 或公开 share token 返回独立阅读页，并加载 R2 HTML。</td><td>不设置 session cookie，不开放私有 API；阅读页外壳极简，原 HTML 保留自己的样式；响应设置隔离与反索引头。</td></tr>
+        </tbody>
+      </table>
+
+      <p>私有文档访问流程：浏览器访问 <code>GET /d/&lt;doc-id&gt;</code>（app origin）→ Worker 校验 Lark session 与文档权限 → 生成 60 秒 view token（绑定 doc_id、user_id、nonce）→ 302 到 content origin 的 <code>/v/&lt;view-token&gt;</code> → content Worker 校验 token 后返回独立阅读页。阅读页最多包含一个小导航条，并把原始 HTML 作为主体内容加载；平台不向作者 HTML 注入全局样式，也不要求作者 HTML 遵守平台 CSS 规范。</p>
 
       <h3>Diagram A：Browser flow</h3>
       <div class="arch">
@@ -820,16 +943,44 @@ explicitly asked. Report the printed URL back.</code></pre>
         <div class="arch-caption">图 3 · CLI login PAT bootstrap flow</div>
       </div>
 
+      <h3>OAuth state / redirect 规则</h3>
+      <ul>
+        <li><code>state</code> 必须随机生成、只存哈希、写入 <code>oauth_states</code>，TTL 10 分钟，callback 成功后标记 <code>consumed_at</code>，不可复用。</li>
+        <li>Browser flow 的 <code>redirect_uri</code> 必须精确匹配部署环境 allowlist，如 <code>https://app.htmldock.example.com/api/auth/lark/callback</code>。</li>
+        <li>CLI flow 只允许 <code>local_cb</code> 为 <code>http://127.0.0.1:&lt;port&gt;/save</code> 或 <code>http://localhost:&lt;port&gt;/save</code>，禁止任意外部 callback。</li>
+        <li>Worker 兑换 code 前先校验 <code>state</code>、用途、TTL、redirect allowlist；任何失败返回 400 并不创建 session 或 PAT。</li>
+      </ul>
+
+      <h3>PAT 规则</h3>
+      <p>PAT 不再存放在 <code>users.pat_hash</code> 单字段里。MVP 使用 <code>personal_access_tokens</code> 表支持多设备、撤销、过期、last_used 与 scope。CLI token 明文只在创建时显示一次，本地写入 <code>~/.config/htmldock/config.toml</code>；服务端只保存 hash 与短 prefix。上传接口要求 <code>docs:write</code>，分享接口要求 <code>share:write</code>。</p>
+
       <div class="callout">
-        <strong>Public share flow（no auth）:</strong> <code>GET /p/&lt;token&gt;</code> 进入 Worker 后，查 <code>shares</code> 表：要求 token 存在、未 <code>revoked</code>、未过期；同时校验 <code>docs.visibility</code> 不为 <code>private-strict</code>；通过 <code>doc_id</code> 找到 <code>docs.r2_key</code>，从 R2 stream object，返回 <code>Content-Type: text/html; charset=utf-8</code>。该路径不要求 session cookie 或 PAT。
+        <strong>Public share flow（no auth）:</strong> <code>GET /p/&lt;token&gt;</code> 进入 content origin 后，查 <code>shares</code> 表：要求 token 存在、未 <code>revoked</code>、未过期；同时校验 <code>docs.visibility</code> 为 <code>public-allowed</code>。通过 <code>doc_id</code> 找到 <code>docs.r2_key</code>，返回同样的独立阅读页外壳和原始 HTML 主体，响应包含 <code>Referrer-Policy: no-referrer</code>、<code>X-Robots-Tag: noindex</code>。该路径不要求 session cookie 或 PAT。
       </div>
+
+      <h3>Share token 规则</h3>
+      <ul>
+        <li>token 使用 128-bit 以上随机熵，base64url 编码，长度不少于 22 字符；只在 URL 中展示，不可由 doc_id 推导。</li>
+        <li>MVP 默认 TTL 为 30 天；显式 <code>--ttl 0</code> 才创建永久链接。永久链接仍可 revoke。</li>
+        <li><code>private-strict</code> 禁止创建 share；<code>team</code> 只允许团队内访问；只有 <code>public-allowed</code> 可公开分享。</li>
+      </ul>
     </section>
 
     <!-- ==================== §7 ==================== -->
     <section id="s7">
-      <h2>§7 索引页 UX</h2>
+      <h2>§7 阅读页 / 索引页 UX</h2>
       <div class="callout info">
         All index pages are Worker-rendered from D1. No HTML is uploaded to represent the index — the Worker generates it on every request.
+      </div>
+
+      <h3>阅读页：独立、极简、不约束 HTML 风格</h3>
+      <p>用户点击 <code>/d/&lt;doc-id&gt;</code> 或 <code>/p/&lt;token&gt;</code> 后看到的是单独的文档阅读页，不进入 dashboard 或三栏工作台。阅读页只允许一个很小的导航条，用于返回索引、显示标题/项目、复制链接或打开分享动作；导航条不得承载搜索、侧栏、推荐、评论、目录树等复杂功能。</p>
+      <p>HTML 文档是主体，平台不为作者 HTML 制定视觉规范，不注入 reset、排版、颜色、间距、字体等全局限制。每份 HTML 可以有自己的完整风格；平台只负责上传、鉴权、索引、搜索和分享。</p>
+      <pre><code>content page
+  small nav: Back · title · Share/Open raw
+  document body: original uploaded HTML, style owned by the document</code></pre>
+      <div class="callout warn">
+        <strong>实现边界：</strong>为了避免平台导航条被作者 HTML 的 CSS/JS 影响，阅读页外壳与文档主体应隔离。推荐外壳渲染一个全屏主体 iframe，iframe 加载受 token 保护的原始 HTML；外壳只保留 28-36px 高的小导航。若后续选择直接 stream 原 HTML，则默认不显示平台导航。
       </div>
 
       <h3>Layout A：三栏工作台</h3>
@@ -840,19 +991,19 @@ explicitly asked. Report the printed URL back.</code></pre>
         </div>
         <div style="display:grid;grid-template-columns:210px 1fr 210px;min-height:330px;">
           <div style="border-right:1px solid var(--border);padding:14px;background:#f8f7f4;">
-            <div style="font-size:12px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Projects</div>
-            <div style="font-weight:600;margin:8px 0;">▾ github.com <span style="float:right;color:var(--fg-muted);font-weight:400;">147</span></div>
+            <div style="font-size:12px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Teams</div>
+            <div style="font-weight:600;margin:8px 0;">▾ acme-infra <span style="float:right;color:var(--fg-muted);font-weight:400;">82</span></div>
             <div style="padding-left:12px;color:var(--fg-muted);">
-              <div>▾ leeguoo <span style="float:right;">82</span></div>
-              <div style="padding-left:12px;color:var(--fg);font-weight:600;">cherry <span style="float:right;color:var(--fg-muted);font-weight:400;">24</span></div>
-              <div style="padding-left:12px;">htmldock <span style="float:right;">18</span></div>
-              <div style="padding-left:12px;">billing <span style="float:right;">40</span></div>
-              <div>▸ infra <span style="float:right;">65</span></div>
+              <div style="color:var(--fg);font-weight:600;">cherry <span style="float:right;color:var(--fg-muted);font-weight:400;">24</span></div>
+              <div>htmldock <span style="float:right;">18</span></div>
+              <div>observability <span style="float:right;">40</span></div>
             </div>
-            <div style="font-weight:600;margin:14px 0 8px;">▾ gitlab.internal <span style="float:right;color:var(--fg-muted);font-weight:400;">31</span></div>
+            <div style="font-weight:600;margin:14px 0 8px;">▾ acme-billing <span style="float:right;color:var(--fg-muted);font-weight:400;">65</span></div>
             <div style="padding-left:12px;color:var(--fg-muted);">
-              <div>▸ platform <span style="float:right;">31</span></div>
+              <div>invoice-engine <span style="float:right;">35</span></div>
+              <div>tax <span style="float:right;">30</span></div>
             </div>
+            <div style="font-weight:600;margin:14px 0 8px;">▸ acme-platform <span style="float:right;color:var(--fg-muted);font-weight:400;">31</span></div>
           </div>
           <div style="padding:16px 18px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -956,27 +1107,66 @@ explicitly asked. Report the printed URL back.</code></pre>
           <tr><td>T16</td><td>FTS5 全文搜索命中：插入 doc → 搜索关键词 → 返回 doc_id。</td><td>Integration</td><td>Miniflare D1</td></tr>
           <tr><td>T17</td><td>FTS5 删除一致性：删除 doc → FTS 同步清理，不再命中。</td><td>Integration</td><td>Miniflare D1</td></tr>
           <tr><td>T18</td><td><code>--force</code> 绕过 <code>sync = false</code> 单次上传成功。</td><td>CLI</td><td>Bun test</td></tr>
+          <tr><td>T19</td><td><code>module_root = "docs"</code> 时 <code>docs/auth/oauth/lark.html</code> 展示路径为 <code>auth/oauth/lark.html</code>，不触发 <code>path_too_deep</code>。</td><td>CLI + API</td><td>Bun test + Miniflare</td></tr>
+          <tr><td>T20</td><td>Hook 遇到 <code>default_project_sync = "ask"</code> 时按 <code>off</code> 处理，不阻塞、不提示、不上传。</td><td>CLI</td><td>Bun test</td></tr>
+          <tr><td>T21</td><td>私有文档 <code>/d/&lt;doc-id&gt;</code> 只在 app origin 校验 session，并 302 到 content origin 短期 view token，最终返回独立阅读页。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td>T22</td><td>content origin 不接受 session cookie 访问私有 API，阅读页响应带 <code>Referrer-Policy</code> 与 <code>X-Robots-Tag</code>。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td>T23</td><td>阅读页最多包含一个小导航条，原始 HTML 主体不被平台 CSS reset 或全局样式覆盖。</td><td>Integration</td><td>Miniflare + HTML assertion</td></tr>
+          <tr><td>T24</td><td>OAuth <code>state</code> 过期、复用、redirect 不在 allowlist 时拒绝 callback。</td><td>Integration</td><td>Miniflare + mocked Lark API</td></tr>
+          <tr><td>T25</td><td>PAT scope / revoke / expires 校验：无 <code>docs:write</code> 返回 403，撤销或过期返回 401。</td><td>Integration</td><td>Miniflare + D1 seed</td></tr>
+          <tr><td>T26</td><td><code>POST /api/docs</code> 对非法 metadata、超 2 MiB 文件、限流分别返回 400 / 413 / 429。</td><td>Integration</td><td>Miniflare</td></tr>
         </tbody>
       </table>
 
       <div class="callout">
         <strong>E2E：</strong>Miniflare 跑单元 + 集成，CI 不需真 R2/D1 凭据。<code>wrangler dev</code> + 真 R2/D1 留给 pre-release smoke：验 binding、对象 streaming、OAuth callback URL、生产权限。
       </div>
+
+      <h3>容量预算（MVP）</h3>
+      <table>
+        <thead><tr><th>资源</th><th>MVP 上限</th><th>原因 / 超限行为</th></tr></thead>
+        <tbody>
+          <tr><td>单个 HTML</td><td>2 MiB</td><td>控制 Worker CPU、FTS 抽文本成本与 R2 读取延迟；超限返回 <code>413 file_too_large</code>。</td></tr>
+          <tr><td>单项目文档数</td><td>2,000</td><td>索引页分页与树渲染保持轻量；超过后仍可上传，但 dashboard 默认分页，搜索优先。</td></tr>
+          <tr><td>全站文档数</td><td>50,000</td><td>D1 10GB 预算内的保守目标；上线前用实际 HTML 样本校准。</td></tr>
+          <tr><td>搜索查询</td><td>默认每次 20 条，最多 100 条</td><td>避免大结果集拖慢 D1；超出 page size clamp 到 100。</td></tr>
+          <tr><td>写入速率</td><td>每用户 60/min，每项目 300/min</td><td>防止 Hook storm；超限返回 <code>429 rate_limited</code> 和 <code>Retry-After</code>。</td></tr>
+        </tbody>
+      </table>
     </section>
 
-    <!-- ==================== Open Questions ==================== -->
+    <!-- ==================== §9 ==================== -->
+    <section id="s9">
+      <h2>§9 实施阻塞修订</h2>
+      <table>
+        <thead><tr><th>#</th><th>问题</th><th>修订决策</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>上传 HTML 与 session cookie 同源直出，存在 XSS 横向打私有 API 风险。</td><td>应用/API origin 与 content origin 分离；私有文档经短期 view token 跳转到 content origin。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>2</td><td><code>docs.visibility</code> 被使用但 schema 缺字段。</td><td><code>docs</code> 增加 <code>visibility</code> enum，并作为 share 权限依据。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>3</td><td>单字段 <code>pat_hash</code> 无法支持 rotation/scope/多设备撤销。</td><td>新增 <code>personal_access_tokens</code> 表，支持 prefix、hash、scope、过期、撤销、last_used。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>4</td><td>Lark OAuth state / redirect 未闭环。</td><td>新增 <code>oauth_states</code> 表、TTL、一次性消费、redirect allowlist、CLI localhost callback 限制。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>5</td><td>公开 share token 缺熵规模、默认 TTL 与反索引/反泄漏响应头。</td><td>定义 128-bit+ token、默认 30 天 TTL、<code>Referrer-Policy: no-referrer</code>、<code>X-Robots-Tag: noindex</code>。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>6</td><td>FTS5 trigger 与 Worker 抽文本设计矛盾。</td><td>删除 trigger 伪 SQL，明确 Worker 在同一事务语义中维护 <code>docs_fts</code>。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>7</td><td><code>module_root</code> 剥离规则缺失。</td><td><code>source_path</code> 记录真实路径，<code>path</code> 记录剥离后的展示路径，并只校验展示路径深度。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>8</td><td><code>POST /api/docs</code> 合约太薄。</td><td>补 metadata schema、错误码、大小限制与 <code>429</code> 语义。</td><td><span class="badge ok">已修订</span></td></tr>
+          <tr><td>9</td><td>缺容量预算。</td><td>补单文件、单项目、全站、搜索 page size 与写入速率预算。</td><td><span class="badge ok">已修订</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ==================== Closed Questions ==================== -->
     <section id="open">
-      <h2>开放问题汇总</h2>
+      <h2>已关闭问题汇总</h2>
       <ol>
-        <li><strong>Q1（已落定）</strong>：R2 原地覆盖、不留历史、不引入 <code>doc_revisions</code>。</li>
-        <li><strong>Q2</strong>：项目级同步开关——<strong>默认 opt-in</strong>（建议）vs opt-out？全局 <code>default_project_sync</code> 是否需要 <code>"ask"</code>？</li>
-        <li><strong>Q3</strong>：模块树深度——<strong>硬限 3 级</strong>（建议）？还是放宽到 4 级但默认 3 级（在 <code>.htmldock.toml</code> 里可调）？</li>
+        <li><strong>Q1</strong>：R2 原地覆盖，不做 <code>doc_revisions</code>。MVP 不承诺回滚、历史版本、immutable share，保留 <code>_rev/&lt;doc_id&gt;/...</code> 扩展命名空间。</li>
+        <li><strong>Q2</strong>：默认 opt-in。<code>ask</code> 只用于前台 TTY；Hook 路径禁用 <code>ask</code>，按 <code>off</code> 处理。</li>
+        <li><strong>Q3</strong>：硬限 3 级，不做项目级可调深度；深度校验作用在剥离 <code>module_root</code> 后的展示路径上。</li>
       </ol>
     </section>
 
     <hr class="soft">
     <p style="color:var(--fg-muted);font-size:13px;">
-      v0.3 修订要点：项目全面改名 <code>html-pla → htmldock</code>；删 §1 残留的 Cloudflare Access 引用；修 R2 key 的 <code>?v=</code> 歧义；§2 增加 FTS5 rowid 同步触发器；§5 新增项目级 <code>.htmldock.toml</code> 与模块树 ≤ 3 规则；§8 新增 T13–T18。
+      v0.4 修订要点：关闭 Q1/Q2/Q3；明确文档 content origin 隔离；补 <code>docs.visibility</code>、PAT 表、OAuth state 表；删除 FTS trigger 矛盾；修正 <code>module_root</code> 剥离后的展示路径深度校验；补 <code>POST /api/docs</code> 合约、share token 安全规则、容量预算、独立极简阅读页与实施阻塞修订表。
     </p>
   </main>
 </div>

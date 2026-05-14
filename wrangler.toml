@@ -1,0 +1,21 @@
+name = "htmldock"
+main = "src/worker.ts"
+compatibility_date = "2025-12-01"
+workers_dev = true
+routes = [
+  { pattern = "htmldock.pwtk-dev.work", custom_domain = true }
+]
+
+[vars]
+APP_ORIGIN = "https://htmldock.pwtk-dev.work"
+CONTENT_ORIGIN = "https://htmldock.pwtk-dev.work"
+LARK_REDIRECT_ALLOWLIST = "https://htmldock.pwtk-dev.work/api/auth/lark/callback"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "htmldock"
+database_id = "217ee43a-dd87-45b2-85d5-ef1902302a83"
+
+[[r2_buckets]]
+binding = "DOCS"
+bucket_name = "htmldock-docs"
