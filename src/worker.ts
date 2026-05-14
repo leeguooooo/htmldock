@@ -320,9 +320,10 @@ async function dashboard(request: Request, env: Env): Promise<Response> {
        JOIN teams ON teams.id = projects.team_id
        JOIN team_members ON team_members.team_id = teams.id AND team_members.user_id = ?
        LEFT JOIN users owner ON owner.id = docs.owner_user_id
+       WHERE docs.visibility != 'private-strict' OR docs.owner_user_id = ?
        ORDER BY docs.updated_at DESC LIMIT 20`
     )
-      .bind(user.id)
+      .bind(user.id, user.id)
       .all<DocListRow>()).results || []);
 
   const toRow = (doc: DocListRow): DashboardRow => {
@@ -367,8 +368,9 @@ async function dashboard(request: Request, env: Env): Promise<Response> {
        JOIN teams ON teams.id = projects.team_id
        LEFT JOIN users owner ON owner.id = docs.owner_user_id
        WHERE projects.id = ?
+         AND (docs.visibility != 'private-strict' OR docs.owner_user_id = ?)
        ORDER BY docs.updated_at DESC LIMIT 8`
-    ).bind(p.id).all<DocListRow>();
+    ).bind(p.id, user.id).all<DocListRow>();
     projects.push({
       id: p.id,
       teamSlug: p.team_slug,
@@ -745,20 +747,26 @@ async function deleteProject(projectId: number, request: Request, env: Env): Pro
 }
 
 async function listDocs(request: Request, env: Env): Promise<Response> {
+  const actor = await currentActor(request, env);
+  if (actor instanceof Response) return actor;
   const url = new URL(request.url);
   const limit = Math.min(Number(url.searchParams.get("limit") || "50"), 100);
   const result = await env.DB.prepare(
     `SELECT docs.id, docs.path, docs.title, docs.visibility, docs.updated_at, teams.slug AS team_slug, projects.slug AS project_slug
      FROM docs JOIN projects ON projects.id = docs.project_id
      JOIN teams ON teams.id = projects.team_id
+     JOIN team_members tm ON tm.team_id = teams.id AND tm.user_id = ?
+     WHERE docs.visibility != 'private-strict' OR docs.owner_user_id = ?
      ORDER BY docs.updated_at DESC LIMIT ?`
   )
-    .bind(limit)
+    .bind(actor.user_id, actor.user_id, limit)
     .all();
   return json({ docs: result.results || [] });
 }
 
 async function searchDocs(request: Request, env: Env): Promise<Response> {
+  const actor = await currentActor(request, env);
+  if (actor instanceof Response) return actor;
   const url = new URL(request.url);
   const query = url.searchParams.get("q")?.trim();
   const limit = Math.min(Number(url.searchParams.get("limit") || "20"), 100);
@@ -768,10 +776,12 @@ async function searchDocs(request: Request, env: Env): Promise<Response> {
      FROM docs_fts JOIN docs ON docs_fts.rowid = docs.id
      JOIN projects ON projects.id = docs.project_id
      JOIN teams ON teams.id = projects.team_id
+     JOIN team_members tm ON tm.team_id = teams.id AND tm.user_id = ?
      WHERE docs_fts MATCH ?
+       AND (docs.visibility != 'private-strict' OR docs.owner_user_id = ?)
      LIMIT ?`
   )
-    .bind(query, limit)
+    .bind(actor.user_id, query, actor.user_id, limit)
     .all();
   return json({ docs: result.results || [] });
 }
@@ -802,8 +812,21 @@ async function openPrivateDoc(docId: number, request: Request, env: Env): Promis
   if (!user) {
     return Response.redirect(`${appOrigin(request, env)}/api/auth/lark`, 302);
   }
-  const doc = await env.DB.prepare("SELECT id FROM docs WHERE id = ?").bind(docId).first<{ id: number }>();
+  const doc = await env.DB.prepare(
+    `SELECT docs.id, docs.visibility, docs.owner_user_id, projects.team_id
+     FROM docs JOIN projects ON projects.id = docs.project_id
+     WHERE docs.id = ?`
+  ).bind(docId).first<{ id: number; visibility: Visibility; owner_user_id: number | null; team_id: number }>();
   if (!doc) return html("<h1>Not found</h1>", 404);
+
+  if (doc.visibility === "private-strict") {
+    if (doc.owner_user_id !== user.user_id) return html("<h1>Forbidden</h1>", 403);
+  } else {
+    const member = await env.DB.prepare(
+      "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?"
+    ).bind(doc.team_id, user.user_id).first<{ 1: number }>();
+    if (!member && doc.owner_user_id !== user.user_id) return html("<h1>Forbidden</h1>", 403);
+  }
   const token = await signViewToken(
     { doc_id: docId, user_id: user.user_id, exp: unixNow() + 60, nonce: randomToken(8) },
     hmacSecret(env)

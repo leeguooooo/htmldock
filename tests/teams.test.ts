@@ -234,7 +234,105 @@ describe("v0.5 teams and hard delete API", () => {
     expect(keys).toEqual(["t/acme-infra/cherry/auth/login.html"]);
     expect(keys[0]).not.toContain("leeguoo");
   });
+
+  test("T35 list/search require auth and only return user's team docs", async () => {
+    await seedUser(1, "alice@example.com");
+    await seedUser(2, "bob@example.com");
+    await seedTeam("acme-infra", 1);
+    await seedTeam("other-team", 2);
+    const aliceToken = await seedPat(1, ["docs:write", "docs:read"]);
+    const bobToken = await seedPat(2, ["docs:read"]);
+    await upload(aliceToken, { team_slug: "acme-infra", project_slug: "cherry", git: gitCherry() });
+
+    const anon = await worker.fetch(new Request("https://app.test/api/docs"), harness.env);
+    expect(anon.status).toBe(401);
+
+    const bobList = await api("/api/docs", { method: "GET", token: bobToken });
+    expect(bobList.status).toBe(200);
+    expect(((await bobList.json()) as { docs: unknown[] }).docs).toHaveLength(0);
+
+    const aliceList = await api("/api/docs", { method: "GET", token: aliceToken });
+    expect(((await aliceList.json()) as { docs: unknown[] }).docs).toHaveLength(1);
+  });
+
+  test("T36 private-strict docs hide from teammates in list and search", async () => {
+    await seedUser(1, "owner@example.com");
+    await seedUser(2, "teammate@example.com");
+    const teamId = await seedTeam("acme-infra", 1);
+    await seedMember(teamId, 2, "member");
+    const ownerToken = await seedPat(1, ["docs:write", "docs:read"]);
+    const teammateToken = await seedPat(2, ["docs:read"]);
+    await uploadWithVisibility(ownerToken, "private-strict");
+
+    const ownerList = await api("/api/docs", { method: "GET", token: ownerToken });
+    expect(((await ownerList.json()) as { docs: unknown[] }).docs).toHaveLength(1);
+
+    const teammateList = await api("/api/docs", { method: "GET", token: teammateToken });
+    expect(((await teammateList.json()) as { docs: unknown[] }).docs).toHaveLength(0);
+
+    const teammateSearch = await api("/api/search?q=Hello", { method: "GET", token: teammateToken });
+    expect(((await teammateSearch.json()) as { docs: unknown[] }).docs).toHaveLength(0);
+  });
+
+  test("T37 share endpoint rejects non public-allowed docs", async () => {
+    await seedUser(1, "owner@example.com");
+    await seedTeam("acme-infra", 1);
+    const token = await seedPat(1, ["docs:write", "share:write"]);
+    const teamDoc = await uploadWithVisibility(token, "team");
+    const teamId = (await teamDoc.json()) as { doc_id: number };
+    const privateDoc = await uploadWithVisibility(token, "private-strict", "other.html");
+    const privateId = (await privateDoc.json()) as { doc_id: number };
+
+    const teamShare = await api("/api/share", { method: "POST", token, json: { doc_id: teamId.doc_id } });
+    expect(teamShare.status).toBe(403);
+    const privateShare = await api("/api/share", { method: "POST", token, json: { doc_id: privateId.doc_id } });
+    expect(privateShare.status).toBe(403);
+  });
+
+  test("T38 /api/share allows public-allowed and /p/<token> serves it without auth", async () => {
+    await seedUser(1, "owner@example.com");
+    await seedTeam("acme-infra", 1);
+    const token = await seedPat(1, ["docs:write", "share:write"]);
+    const publicDoc = await uploadWithVisibility(token, "public-allowed");
+    const { doc_id } = (await publicDoc.json()) as { doc_id: number };
+
+    const shareResponse = await api("/api/share", { method: "POST", token, json: { doc_id, ttl_days: 7 } });
+    expect(shareResponse.status).toBe(200);
+    const { token: shareToken } = (await shareResponse.json()) as { token: string };
+
+    const anon = await worker.fetch(new Request(`https://content.test/p/${shareToken}`), harness.env);
+    expect(anon.status).toBe(200);
+    expect(anon.headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect(anon.headers.get("X-Robots-Tag")).toBe("noindex");
+  });
 });
+
+async function uploadWithVisibility(token: string, visibility: "team" | "public-allowed" | "private-strict", filename: string = "auth/login.html"): Promise<Response> {
+  const html = `<!doctype html><title>Login</title><h1>Hello ${visibility}</h1>`;
+  const form = new FormData();
+  form.set("file", new File([html], filename.split("/").at(-1) || "doc.html", { type: "text/html" }));
+  form.set(
+    "metadata",
+    JSON.stringify({
+      team_slug: "acme-infra",
+      project_slug: "cherry",
+      source_path: `docs/${filename}`,
+      path: filename,
+      title: "Login",
+      sha256: await sha256Hex(html),
+      visibility,
+      git: gitCherry()
+    })
+  );
+  return worker.fetch(
+    new Request("https://app.test/api/docs", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form
+    }),
+    harness.env
+  );
+}
 
 async function seedUser(id: number, email: string): Promise<void> {
   await harness.db.prepare("INSERT INTO users (id, lark_open_id, email, name, created_at) VALUES (?, ?, ?, ?, ?)")
