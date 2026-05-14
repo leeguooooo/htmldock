@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>htmldock 设计稿（v0.3）</title>
+<style>
+  :root {
+    --fg: #1a1a1a;
+    --fg-muted: #6b6b6b;
+    --fg-faint: #9a9a9a;
+    --bg: #fbfbfa;
+    --bg-card: #ffffff;
+    --bg-soft: #f4f3f0;
+    --border: #e3e1dc;
+    --border-strong: #c9c6bf;
+    --accent: #2b6cb0;
+    --accent-soft: #e7f0fa;
+    --warn: #b7791f;
+    --warn-soft: #fef6e4;
+    --open: #9b2c2c;
+    --open-soft: #fde8e8;
+    --ok: #2f855a;
+    --ok-soft: #e6f4ea;
+    --code-bg: #f6f5f1;
+    --shadow: 0 1px 0 rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  aside.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 28px 16px 28px 28px;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+  }
+  aside.toc h2 {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    margin: 0 0 12px;
+  }
+  aside.toc ol { list-style: none; padding: 0; margin: 0; }
+  aside.toc ol li { margin: 4px 0; }
+  aside.toc a {
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    display: block;
+    padding: 2px 0;
+  }
+  aside.toc a:hover { color: var(--accent); }
+  main { padding: 36px 44px 80px; min-width: 0; }
+  header.title { margin-bottom: 36px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  header.title h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.01em; }
+  header.title .meta { color: var(--fg-faint); font-size: 13px; }
+  section { margin: 0 0 44px; }
+  section h2 {
+    font-size: 20px;
+    margin: 0 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  section h3 { font-size: 16px; margin: 22px 0 8px; }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; }
+  ul li, ol li { margin: 3px 0; }
+  code, pre {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  code { background: var(--code-bg); padding: 1.5px 5px; border-radius: 3px; }
+  pre {
+    background: var(--code-bg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 13.5px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th { background: var(--bg-soft); font-weight: 600; font-size: 12.5px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  tr:last-child td { border-bottom: none; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+  }
+  .badge.ok    { background: var(--ok-soft);   color: var(--ok); }
+  .badge.warn  { background: var(--warn-soft); color: var(--warn); }
+  .badge.open  { background: var(--open-soft); color: var(--open); }
+  .badge.info  { background: var(--accent-soft); color: var(--accent); }
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  .callout.open { border-color: var(--open); background: var(--open-soft); }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .callout h4 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.02em; }
+  .question {
+    background: var(--bg-card);
+    border: 1px dashed var(--open);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .question h4 { margin: 0 0 6px; color: var(--open); font-size: 14px; }
+  .question ul { margin: 6px 0 0; }
+  .arch {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 14px 0;
+    box-shadow: var(--shadow);
+  }
+  .arch svg { width: 100%; height: auto; display: block; }
+  .arch-caption { font-size: 12.5px; color: var(--fg-muted); text-align: center; margin-top: 8px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tree-good, .tree-bad {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  .tree-good { border-left: 3px solid var(--ok); }
+  .tree-bad  { border-left: 3px solid var(--open); }
+  .tree-good .h, .tree-bad .h {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    margin-bottom: 6px;
+  }
+  .tree-good .h { color: var(--ok); }
+  .tree-bad .h  { color: var(--open); }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    aside.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 24px 20px 60px; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  hr.soft { border: none; border-top: 1px dashed var(--border); margin: 28px 0; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="toc">
+    <h2>目录</h2>
+    <ol>
+      <li><a href="#confirmed">已确认决策</a></li>
+      <li><a href="#s1">§1 整体架构</a></li>
+      <li><a href="#s2">§2 数据模型</a></li>
+      <li><a href="#s3">§3 路径坐标算法</a></li>
+      <li><a href="#s4">§4 CLI 设计</a></li>
+      <li><a href="#s5">§5 Skill / Hook 机制</a></li>
+      <li><a href="#s6">§6 认证流程</a></li>
+      <li><a href="#s7">§7 索引页 UX</a></li>
+      <li><a href="#s8">§8 错误处理 &amp; 测试</a></li>
+      <li><a href="#open">开放问题</a></li>
+    </ol>
+    <h2 style="margin-top:24px;">图例</h2>
+    <p style="font-size:12.5px;line-height:1.8;margin:0;color:var(--fg-muted);">
+      <span class="badge ok">已确认</span>&nbsp; 用户已点头<br>
+      <span class="badge warn">建议</span>&nbsp; 我的默认推荐<br>
+      <span class="badge open">待定</span>&nbsp; 等你回答
+    </p>
+  </aside>
+
+  <main>
+    <header class="title">
+      <h1>htmldock：团队 HTML 文档基站</h1>
+      <div class="meta">设计稿 · v0.3 · 2026-05-14 · 项目改名 + 项目级开关 + 模块树规则 + R2/FTS 修订</div>
+    </header>
+
+    <!-- ==================== Confirmed ==================== -->
+    <section id="confirmed">
+      <h2>已确认决策</h2>
+      <table>
+        <thead><tr><th style="width:24%">维度</th><th>选择</th><th style="width:18%">状态</th></tr></thead>
+        <tbody>
+          <tr><td>项目名 / CLI / 配置</td><td>项目名 <code>htmldock</code>；CLI 二进制 <code>htmldock</code>；项目级配置 <code>.htmldock.toml</code>；全局配置 <code>~/.config/htmldock/config.toml</code></td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>受众</td><td>团队私有 + 可生成公开分享链接（Notion 模式）</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>同步方式</td><td>Skill / Hook 中间件，生成 HTML 即上传</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>认证（MVP）</td><td>仅 <strong>Lark OAuth</strong>。浏览器走 Lark session cookie，CLI 走 PAT。Cloudflare Access SSO 推迟到后续迭代</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>路径维度</td><td>按项目（GitHub host/owner/repo 作为坐标），归属人作为元数据</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>MVP 范围</td><td>上传 · 浏览 · Lark 登录 · 归属人 · 公开分享 · 全文搜索</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>技术栈</td><td>Cloudflare 全栈（Workers + R2 + D1 + Pages）</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>核心原则</td><td><strong>全站 HTML 内容均为动态上传</strong>。平台不托管任何静态作者内容；索引页由 Worker 从 D1 渲染</td><td><span class="badge ok">已确认</span></td></tr>
+          <tr><td>项目级同步开关</td><td><strong>默认 opt-in</strong>：只有项目根存在 <code>.htmldock.toml</code> 且 <code>sync = true</code> 才上传</td><td><span class="badge warn">建议</span> · 见 Q2</td></tr>
+          <tr><td>模块树深度</td><td>硬上限 <strong>3 级</strong>（含文件名）。Skill 指导 agent 主动选择模块前缀</td><td><span class="badge warn">建议</span> · 见 Q3</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <h4>设计原则：动态上传单一来源</h4>
+        所有用户可见的"文档"内容必须经过 CLI / Skill 的上传通道进入平台。索引、导航、搜索结果页都是 Worker 实时渲染——它们消费 D1，但本身不是被上传的 HTML。这条原则约束了：没有"在网页里直接编辑文档"的功能（一期不做）；没有"上传到 R2 但不在 D1 登记"的旁路。
+      </div>
+    </section>
+
+    <!-- ==================== §1 Architecture ==================== -->
+    <section id="s1">
+      <h2>§1 整体架构</h2>
+      <p>两条独立访问路径：团队成员凭 Lark session cookie 看私有文档；外部通过 <code>/p/&lt;token&gt;</code> 看公开分享，Worker 自验签，不依赖 session。</p>
+
+      <div class="arch">
+        <svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L9,3 Z" fill="#6b6b6b"/>
+            </marker>
+            <style>
+              .box { fill: #ffffff; stroke: #c9c6bf; stroke-width: 1.2; }
+              .box-soft { fill: #f4f3f0; stroke: #c9c6bf; stroke-width: 1.2; }
+              .box-accent { fill: #e7f0fa; stroke: #2b6cb0; stroke-width: 1.2; }
+              .label { font: 600 13px -apple-system, "PingFang SC", sans-serif; fill: #1a1a1a; }
+              .sub   { font: 11.5px -apple-system, "PingFang SC", sans-serif; fill: #6b6b6b; }
+              .arrow { stroke: #6b6b6b; stroke-width: 1.3; fill: none; marker-end: url(#arrow); }
+              .arrow-soft { stroke: #9a9a9a; stroke-width: 1.1; fill: none; marker-end: url(#arrow); stroke-dasharray: 4 3; }
+              .flow { font: 11px -apple-system, "PingFang SC", sans-serif; fill: #6b6b6b; }
+            </style>
+          </defs>
+
+          <!-- Top tier: clients -->
+          <rect class="box-soft" x="30" y="20" width="220" height="70" rx="8"/>
+          <text class="label" x="140" y="48" text-anchor="middle">Claude Code 会话</text>
+          <text class="sub"   x="140" y="68" text-anchor="middle">任一项目目录 · 写 *.html</text>
+
+          <rect class="box-soft" x="630" y="20" width="220" height="70" rx="8"/>
+          <text class="label" x="740" y="48" text-anchor="middle">团队成员浏览器 / 外部访客</text>
+          <text class="sub"   x="740" y="68" text-anchor="middle">私有读 / 公开分享</text>
+
+          <!-- CLI -->
+          <rect class="box" x="60" y="135" width="180" height="80" rx="8"/>
+          <text class="label" x="150" y="162" text-anchor="middle">htmldock CLI</text>
+          <text class="sub"   x="150" y="180" text-anchor="middle">Bun + git remote 解析</text>
+          <text class="sub"   x="150" y="198" text-anchor="middle">PAT 鉴权</text>
+
+          <!-- Browser session note -->
+          <rect class="box" x="640" y="135" width="200" height="80" rx="8"/>
+          <text class="label" x="740" y="162" text-anchor="middle">Lark session cookie</text>
+          <text class="sub"   x="740" y="180" text-anchor="middle">Worker 内 session 校验</text>
+          <text class="sub"   x="740" y="198" text-anchor="middle">/p/* 不需 session</text>
+
+          <!-- Workers -->
+          <rect class="box-accent" x="200" y="260" width="500" height="120" rx="8"/>
+          <text class="label" x="450" y="285" text-anchor="middle">Cloudflare Workers · Hono</text>
+          <text class="sub"   x="450" y="307" text-anchor="middle">POST /api/docs     ·  GET /api/docs?project=…</text>
+          <text class="sub"   x="450" y="325" text-anchor="middle">GET /api/auth/lark  ·  POST /api/share</text>
+          <text class="sub"   x="450" y="343" text-anchor="middle">GET /api/search    ·  GET /p/&lt;token&gt;</text>
+          <text class="sub"   x="450" y="365" text-anchor="middle" style="fill:#9b2c2c">私有路径需 session · /p/&lt;token&gt; 仅查 shares 表</text>
+
+          <!-- R2 -->
+          <rect class="box" x="120" y="420" width="200" height="80" rx="8"/>
+          <text class="label" x="220" y="448" text-anchor="middle">R2</text>
+          <text class="sub"   x="220" y="468" text-anchor="middle">HTML 原文件</text>
+          <text class="sub"   x="220" y="486" text-anchor="middle">key = host/owner/repo/&lt;path&gt;</text>
+
+          <!-- D1 -->
+          <rect class="box" x="580" y="420" width="200" height="80" rx="8"/>
+          <text class="label" x="680" y="448" text-anchor="middle">D1 (SQLite)</text>
+          <text class="sub"   x="680" y="468" text-anchor="middle">projects · docs · users</text>
+          <text class="sub"   x="680" y="486" text-anchor="middle">shares · docs_fts (FTS5)</text>
+
+          <!-- Arrows -->
+          <path class="arrow" d="M140 90 L150 135"/>
+          <text class="flow" x="158" y="118">Hook 触发</text>
+
+          <path class="arrow" d="M240 175 L320 260"/>
+          <text class="flow" x="240" y="225">PAT</text>
+
+          <path class="arrow" d="M740 90 L740 135"/>
+          <path class="arrow" d="M650 215 L580 260"/>
+          <text class="flow" x="540" y="240">私有读</text>
+
+          <path class="arrow-soft" d="M740 215 Q 740 360 700 380"/>
+          <text class="flow" x="755" y="300">/p/&lt;token&gt; 公开</text>
+
+          <path class="arrow" d="M340 380 L240 420"/>
+          <path class="arrow" d="M560 380 L660 420"/>
+        </svg>
+        <div class="arch-caption">图 1 · 端到端数据流（两条独立访问路径，无 CF Access）</div>
+      </div>
+    </section>
+
+    <!-- ==================== §2 Data Model ==================== -->
+    <section id="s2">
+      <h2>§2 数据模型</h2>
+      <h3>D1 表结构（SQL）</h3>
+<pre><code>-- 项目坐标（来自 git remote 解析）
+projects (
+  id            INTEGER PRIMARY KEY,
+  host          TEXT NOT NULL,      -- github.com / gitlab.com / 内网
+  owner         TEXT NOT NULL,      -- leeguoo / org
+  repo          TEXT NOT NULL,
+  display_name  TEXT,
+  created_at    INTEGER,
+  UNIQUE(host, owner, repo)
+)
+
+-- 文档主表
+docs (
+  id            INTEGER PRIMARY KEY,
+  project_id    INTEGER REFERENCES projects(id),
+  path          TEXT NOT NULL,      -- 项目内相对子路径，最多 3 段（含文件名），如 auth/login-flow.html
+  title         TEXT,               -- 解析 &lt;title&gt; 提取
+  r2_key        TEXT NOT NULL,      -- R2 对象 key（与 path 一一对应，无 query 字符）
+  owner_user_id INTEGER REFERENCES users(id),
+  size_bytes    INTEGER,
+  sha256        TEXT,               -- 当前内容哈希，幂等性的依据
+  created_at    INTEGER,
+  updated_at    INTEGER,
+  UNIQUE(project_id, path)
+)
+
+users (
+  id            INTEGER PRIMARY KEY,
+  lark_open_id  TEXT UNIQUE,
+  email         TEXT,
+  name          TEXT,
+  avatar_url    TEXT,
+  pat_hash      TEXT,               -- CLI 用 PAT（SHA256 哈希存储）
+  created_at    INTEGER
+)
+
+shares (
+  token         TEXT PRIMARY KEY,   -- 22 字节 base64url，不可猜测
+  doc_id        INTEGER REFERENCES docs(id),
+  created_by    INTEGER REFERENCES users(id),
+  expires_at    INTEGER,            -- NULL = 永久
+  revoked       INTEGER DEFAULT 0,
+  created_at    INTEGER
+)
+
+-- D1 FTS5 全文索引（content-less，rowid 与 docs.id 对齐）
+CREATE VIRTUAL TABLE docs_fts USING fts5(
+  title, body_text, content=''
+);
+
+-- 触发器：保证 docs_fts.rowid === docs.id
+CREATE TRIGGER docs_ai AFTER INSERT ON docs BEGIN
+  INSERT INTO docs_fts(rowid, title, body_text)
+  VALUES (new.id, new.title, extractBodyText(new.r2_key));
+END;
+CREATE TRIGGER docs_au AFTER UPDATE OF title, sha256 ON docs BEGIN
+  INSERT INTO docs_fts(docs_fts, rowid, title, body_text)
+  VALUES ('delete', old.id, old.title, '');
+  INSERT INTO docs_fts(rowid, title, body_text)
+  VALUES (new.id, new.title, extractBodyText(new.r2_key));
+END;
+CREATE TRIGGER docs_ad AFTER DELETE ON docs BEGIN
+  INSERT INTO docs_fts(docs_fts, rowid, title, body_text)
+  VALUES ('delete', old.id, old.title, '');
+END;</code></pre>
+
+      <div class="callout">
+        <strong>FTS5 同步说明：</strong><code>extractBodyText()</code> 不是真的 SQL 函数；纯文本提取（剥 HTML 标签、解 entity、压缩空白）在 Worker 端完成后随 INSERT/UPDATE 一并写入。触发器只是表达 rowid 一一对应的语义；实际写入由 Worker 在事务里做。
+      </div>
+
+      <h3>R2 key 规则（修订自 v0.2）</h3>
+      <p>v0.2 的 <code>&lt;path&gt;?v=&lt;sha&gt;</code> 把 <code>?</code> 放进了 key，会和 URL query 语义混淆。v0.3 简化为：</p>
+      <pre><code>r2_key = "&lt;host&gt;/&lt;owner&gt;/&lt;repo&gt;/&lt;path&gt;"</code></pre>
+      <p>例：<code>github.com/leeguoo/cherry/auth/login-flow.html</code></p>
+      <p>由于 Q1 选了"原地覆盖、不留历史"（Option B），key 就是路径本身，不再带版本前缀。日后若引入 <code>doc_revisions</code>，可在历史 key 上挂时间戳前缀如 <code>_rev/&lt;doc_id&gt;/&lt;ts&gt;/...</code>，跟当前 key 不冲突。</p>
+
+      <div class="callout info">
+        <strong>Q1 已落定（v0.2 推荐）：</strong>R2 原地覆盖 + <code>docs</code> 仅保存当前 <code>sha256</code>，不引入 <code>doc_revisions</code>。理由：HTML 文档更新频率低、回滚价值低、R2 按对象计费、D1 schema 越简越好。
+      </div>
+    </section>
+
+    <!-- ==================== §3 ==================== -->
+    <section id="s3">
+      <h2>§3 路径坐标算法</h2>
+      <p>CLI 从 <code>git remote -v</code>、<code>git rev-parse --show-toplevel</code> 和 HTML 文件路径推导上传坐标 <code>(host, owner, repo, sub_path)</code>。其中 <code>host/owner/repo</code> 定义项目，<code>sub_path</code> 定义该 HTML 文件在项目内的位置；作者身份只作为 metadata，不参与路径坐标。</p>
+
+      <h3>输入模式与解析结果</h3>
+      <table>
+        <thead><tr><th>Input Pattern</th><th>host</th><th>owner</th><th>repo</th><th>备注</th></tr></thead>
+        <tbody>
+          <tr><td><code>git@github.com:leeguoo/cherry.git</code></td><td><code>github.com</code></td><td><code>leeguoo</code></td><td><code>cherry</code></td><td>标准 SSH scp-like URL。去掉结尾 <code>.git</code>。</td></tr>
+          <tr><td><code>https://github.com/leeguoo/cherry.git</code></td><td><code>github.com</code></td><td><code>leeguoo</code></td><td><code>cherry</code></td><td>标准 HTTPS URL。用 URL parser，不字符串硬切。</td></tr>
+          <tr><td><code>git@github-work:org/repo.git</code></td><td><code>github-work</code></td><td><code>org</code></td><td><code>repo</code></td><td>SSH alias 真实 host 不可靠。MVP 不读 <code>~/.ssh/config</code>；保留 alias 作 host，并在 metadata 标 <code>host_resolution=alias</code>。</td></tr>
+          <tr><td><code>ssh://git@gitlab.internal:2222/team/sub/repo.git</code></td><td><code>gitlab.internal</code></td><td><code>team/sub</code></td><td><code>repo</code></td><td>端口不进 host 坐标，原始 remote URL 存 metadata；最后一段为 repo，前缀为 owner/group path。</td></tr>
+          <tr><td>Multi-remote（origin / upstream / fork）</td><td colspan="3">按优先级选 remote 后解析</td><td>优先 <code>origin</code>；显式 <code>--remote &lt;name&gt;</code> 覆盖；都无 origin 时取第一个 fetch remote；fork 不自动并入 upstream。</td></tr>
+          <tr><td>No remote（local-only repo）</td><td colspan="3">默认拒绝</td><td>MVP 默认 <strong>拒绝并报错</strong>，避免出现不可共享坐标。未来 <code>--allow-local</code> 落入 <code>local@hostname/username/DIRNAME</code>。</td></tr>
+          <tr><td>worktree</td><td colspan="3">使用主 repo remote</td><td><code>sub_path</code> 必须相对 Git repo root，不相对 worktree mount。</td></tr>
+          <tr><td>submodule</td><td colspan="3">用 submodule 自己的 remote</td><td>submodule 当独立 repo，不继承父 repo 坐标。</td></tr>
+          <tr><td>monorepo subdir</td><td colspan="3">用 monorepo remote</td><td><code>sub_path</code> = HTML 目录相对 repo root；文件名进 <code>docs.path</code> 末段。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>解析伪代码</h3>
+<pre><code>function deriveCoordinates(filePath, options):
+  root = git("rev-parse --show-toplevel", cwd=dirname(filePath))
+  if root is empty:
+    error("HTML file must be inside a git repository")
+
+  remotes = parseGitRemoteV(git("remote -v", cwd=root))
+  remote  = chooseRemote(remotes, options.remote)
+  if remote is empty:
+    if options.allowLocalNamespace:
+      host  = "local@" + hostname()
+      owner = username()
+      repo  = basename(root)
+    else:
+      error("No git remote found; pass --allow-local to use local namespace")
+  else:
+    parsed = parseRemoteUrl(remote.fetchUrl)
+    host   = normalizeHost(parsed.host)
+    owner  = trimSlashes(parsed.ownerPath)
+    repo   = stripSuffix(parsed.repo, ".git")
+
+  relFile = relativePath(root, absolutePath(filePath))
+  if relFile startsWith "..":
+    error("File is outside repository root")
+
+  // 模块树深度校验（见 §5）
+  segments = relFile.split("/")
+  if segments.length &gt; 3:
+    error("path_too_deep: max 3 segments including filename, got " + segments.length)
+
+  return {
+    host:     host,
+    owner:    owner,
+    repo:     repo,
+    sub_path: dirname(relFile),
+    path:     relFile
+  }</code></pre>
+    </section>
+
+    <!-- ==================== §4 ==================== -->
+    <section id="s4">
+      <h2>§4 CLI 设计（htmldock, Bun single-binary）</h2>
+      <p><code>htmldock</code> 是 Bun 编译出的单文件 CLI。它只负责本地文件校验、Git 坐标解析、项目级配置读取、认证 token 管理和 API 调用——不嵌 HTML 编辑器。</p>
+
+      <h3>命令表</h3>
+      <table>
+        <thead><tr><th>Command</th><th>Args</th><th>Description</th><th>常用 Flags</th></tr></thead>
+        <tbody>
+          <tr><td><code>push</code></td><td><code>&lt;file&gt;</code></td><td>上传单个 HTML 文件；成功后打印可点击 URL。会检查项目级开关，未启用时直接拒绝（除非 <code>--force</code>）。</td><td><code>--force</code>, <code>--dry-run</code>, <code>--public</code>, <code>--module &lt;prefix&gt;</code></td></tr>
+          <tr><td><code>init</code></td><td>无</td><td>在当前 repo 根写入 <code>.htmldock.toml</code>（带交互问答：sync? visibility? module_root?）。</td><td><code>--yes</code>（一路默认）</td></tr>
+          <tr><td><code>login</code></td><td>无</td><td>启动 Lark OAuth flow，CLI 开本地 HTTP listener 接收 PAT。</td><td><code>--server &lt;url&gt;</code></td></tr>
+          <tr><td><code>logout</code></td><td>无</td><td>删除本地 config 中的 PAT。</td><td>—</td></tr>
+          <tr><td><code>list</code></td><td>无</td><td>列出当前项目（或指定项目）的 docs。<code>--tree</code> 以模块树形式输出，方便 agent 复用前缀。</td><td><code>--project current|&lt;host/owner/repo&gt;</code>, <code>--tree</code>, <code>--json</code></td></tr>
+          <tr><td><code>share</code></td><td><code>&lt;doc-id&gt;</code></td><td>生成公开分享链接并打印 URL。</td><td><code>--ttl &lt;days&gt;</code></td></tr>
+          <tr><td><code>revoke</code></td><td><code>&lt;share-id&gt;</code></td><td>撤销一个 share link。</td><td>—</td></tr>
+          <tr><td><code>whoami</code></td><td>无</td><td>打印当前 config 中的用户信息和 server。</td><td>—</td></tr>
+          <tr><td><code>open</code></td><td><code>&lt;doc-id&gt;</code></td><td>在浏览器打开 doc。</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <h3>全局配置文件</h3>
+      <p>路径：<code>~/.config/htmldock/config.toml</code>。</p>
+<pre><code>server_url           = "https://htmldock.example.com"
+pat                  = "hd_pat_xxx"           # CLI Personal Access Token
+default_public       = false
+auto_push            = true                   # 总闸：Hook 默认是否调用 push
+default_project_sync = "off"                  # 无 .htmldock.toml 项目的 fallback：off | on | ask
+ignore_patterns      = [
+  "node_modules/", ".git/", "dist/", "build/", ".cache/",
+  "*-draft.html", "tmp-*.html"
+]</code></pre>
+
+      <h3><code>push</code> 内部步骤</h3>
+      <ol>
+        <li>校验文件存在且后缀为 <code>.html</code>。</li>
+        <li>跑 <code>git rev-parse --show-toplevel</code> 找仓库根；找不到则拒绝（非 git 文件）。</li>
+        <li>读项目级 <code>.htmldock.toml</code>（见 §5）。若不存在 → 按 <code>default_project_sync</code> 决定（默认 opt-in，未开启则 <code>exit 0</code> 并提示 <code>Run "htmldock init" to enable sync</code>）。</li>
+        <li>跑 <code>git remote -v</code>，按 §3 算 <code>(host, owner, repo, sub_path, path)</code>。</li>
+        <li>校验 <code>path</code> 段数 ≤ 3；超过 → 报 <code>path_too_deep</code> 并提示压扁建议。</li>
+        <li>从 HTML 抽 <code>&lt;title&gt;</code>，回退到 filename。</li>
+        <li>算 <code>sha256</code>。</li>
+        <li><code>GET /api/docs/check?project=…&amp;path=…&amp;sha256=…</code>：若已存在且哈希一致 → 打印 <code>Already up to date</code> 并 <code>exit 0</code>，不更新 <code>updated_at</code>。</li>
+        <li><code>POST /api/docs</code> multipart：file + metadata JSON。</li>
+        <li>打印 <code>✓ Published: https://htmldock.example.com/d/&lt;doc-id&gt;</code>。</li>
+      </ol>
+
+      <h3>全局 flags</h3>
+      <table>
+        <thead><tr><th>Flag</th><th>行为</th></tr></thead>
+        <tbody>
+          <tr><td><code>--force</code></td><td>绕过项目级 <code>.htmldock.toml</code> 的 <code>sync = false</code>，强行单次上传。不会写入项目配置。</td></tr>
+          <tr><td><code>--dry-run</code></td><td>打印将解析出的坐标、title、sha256、目标 server，不发起网络请求。</td></tr>
+          <tr><td><code>--public</code></td><td>覆盖 <code>default_public</code>，上传后立即生成公开 share link。</td></tr>
+          <tr><td><code>--server &lt;url&gt;</code></td><td>覆盖 config 中的 <code>server_url</code>。</td></tr>
+          <tr><td><code>--no-color</code></td><td>关闭彩色输出，方便 CI 和日志系统。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ==================== §5 ==================== -->
+    <section id="s5">
+      <h2>§5 Skill / Hook 机制</h2>
+      <p>本节定义"Generate = Upload"：当 Claude Code 写入 HTML 文件时，<code>PostToolUse</code> Hook 调用 <code>htmldock push</code>；并通过 <code>.htmldock.toml</code> 实现项目级 opt-in 开关；同时给 agent 一个"主动选模块路径"的指令骨架。</p>
+
+      <h3>项目级配置：<code>.htmldock.toml</code></h3>
+      <p>位置：每个想接入平台的 repo 根目录。可由 <code>htmldock init</code> 交互生成。</p>
+<pre><code># &lt;repo-root&gt;/.htmldock.toml
+sync           = true                  # 必填。false / 缺失文件 = 不同步
+visibility     = "team"                # team | public-allowed | private-strict
+default_owner  = "leo"                 # push 时不指定 --owner 的 fallback
+module_root    = ""                    # 仅这个子目录下生成的 HTML 才被认为是"成品"，留空表示整个 repo
+ignore         = ["draft/**", "scratch/*.html"]
+auto_module    = true                  # Skill 是否自动建模块树（见下）</code></pre>
+
+      <table>
+        <thead><tr><th>字段</th><th>类型</th><th>缺省</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>sync</code></td><td>bool</td><td><em>必填</em></td><td>本仓库是否启用同步。<code>false</code> 或文件缺失都不会上传（除 <code>--force</code>）。</td></tr>
+          <tr><td><code>visibility</code></td><td>enum</td><td><code>team</code></td><td><code>team</code>: 团队内可读；<code>public-allowed</code>: 允许生成公开链接；<code>private-strict</code>: 仅作者本人可读，禁止 share。</td></tr>
+          <tr><td><code>default_owner</code></td><td>string</td><td>当前 Lark 用户</td><td>push 时未传 <code>--owner</code> 的归属人。</td></tr>
+          <tr><td><code>module_root</code></td><td>string</td><td><code>""</code></td><td>"成品文档"目录。设为 <code>"docs"</code> 后，<code>scratch/notes.html</code> 不会上传。</td></tr>
+          <tr><td><code>ignore</code></td><td>string[]</td><td><code>[]</code></td><td>glob 列表，叠加在全局 <code>ignore_patterns</code> 之上。</td></tr>
+          <tr><td><code>auto_module</code></td><td>bool</td><td><code>true</code></td><td>Skill 是否在生成 HTML 前主动选模块路径（见下）。关闭则 agent 把 HTML 平铺到 repo 根。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>opt-in vs opt-out</h3>
+      <table>
+        <thead><tr><th>方案</th><th>含义</th><th>优点</th><th>风险</th><th>推荐</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>opt-in</strong></td>
+            <td>仅存在 <code>.htmldock.toml</code> 且 <code>sync = true</code> 的 repo 才上传</td>
+            <td>不会误传别人的代码 / 实验 / 私库；新 repo 默认安全；和 <code>git init</code> 后第一次 commit 一样需要显式动作。</td>
+            <td>稍多一步 <code>htmldock init</code>。</td>
+            <td><span class="badge warn">推荐</span></td>
+          </tr>
+          <tr>
+            <td><strong>opt-out</strong></td>
+            <td>所有 git 仓库默认同步，<code>.htmldock.toml</code> 写 <code>sync = false</code> 来关</td>
+            <td>极简：写完即上。</td>
+            <td>容易把含密钥 / 内部敏感内容的 repo 误传；<code>/Users/leo/github.com/</code> 下 100+ 仓库多数是别人的代码，全开同步噪音很大。</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="question">
+        <h4>Q2：opt-in 还是 opt-out？</h4>
+        <ul>
+          <li>我建议默认 <strong>opt-in</strong>。是否同意？或希望走 opt-out？</li>
+          <li>全局 <code>default_project_sync</code> 是否要支持 <code>"ask"</code>（首次 push 时弹问）？</li>
+        </ul>
+      </div>
+
+      <h3>模块树规则（深度 ≤ 3）</h3>
+      <p>所有上传文档的 <code>path</code> 段数（含文件名）不得超过 <strong>3</strong>。服务端 API 强校验，超出返回 <code>400 path_too_deep</code>。</p>
+
+      <div class="grid-2">
+        <div class="tree-good">
+          <div class="h">✓ 合规示例</div>
+          auth-redesign.html<br>
+          auth/login-flow.html<br>
+          auth/oauth/lark-integration.html<br>
+          billing/invoice-export.html<br>
+          infra/observability/dashboard.html
+        </div>
+        <div class="tree-bad">
+          <div class="h">✗ 不合规（深度 &gt; 3）</div>
+          auth/oauth/lark/v2/proposal.html<br>
+          docs/team/qa/runbook/incident-1024.html<br>
+          src/api/v2/handlers/upload.html
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <strong>语义动机：</strong>深度 ≤ 3 是为了让索引页项目树永远 1 屏可见，并强迫作者用文件名而非路径表达细分（<code>oauth/lark-integration.html</code> 比 <code>oauth/lark/integration.html</code> 信息量等价但更扁）。
+      </div>
+
+      <h3>Claude Code <code>settings.json</code> Hook</h3>
+<pre><code>{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Write",
+      "hooks": [{ "type": "command", "command": "~/.local/bin/htmldock-hook" }]
+    }]
+  }
+}</code></pre>
+
+      <h3><code>htmldock-hook</code> 伪代码</h3>
+<pre><code>input = readStdinJson()
+path  = extractWrittenFilePath(input)
+if path is empty or not path.endsWith(".html"):
+  exit 0
+
+repoRoot = run("git rev-parse --show-toplevel", cwd=dirname(path))
+if repoRoot failed:
+  exit 0
+
+# opt-in 守门
+projConf = readTomlIfExists(repoRoot + "/.htmldock.toml")
+if projConf is None:
+  switch globalConfig.default_project_sync:
+    case "off":  exit 0
+    case "on":   projConf = {sync: true}
+    case "ask":  prompt user once, cache decision
+elif not projConf.sync:
+  exit 0
+
+# ignore 列表
+ignore = globalConfig.ignore_patterns + (projConf.ignore or [])
+if projConf.module_root and not pathRelativeTo(repoRoot, path).startsWith(projConf.module_root):
+  exit 0    # 不在"成品目录"
+if matchesAny(pathRelativeTo(repoRoot, path), ignore):
+  exit 0
+
+# 上传
+result = run("htmldock push --quiet " + shellQuote(path))
+if result failed:
+  appendJsonl("~/.local/share/htmldock/queue.jsonl", {
+    ts: nowUnix(), path: path, error: result.stderr
+  })
+exit 0   # 永不打断 Claude Code 主流程</code></pre>
+
+      <h3>失败队列与 replay</h3>
+      <p>Hook 失败一律静默；失败条目追加到 <code>~/.local/share/htmldock/queue.jsonl</code>。下一次任意 <code>htmldock push</code> 成功后，CLI 顺手 drain 该队列：逐条重试，成功的删除，失败的保留并更新最近错误。</p>
+
+      <h3><code>htmldock</code> Skill（<code>~/.claude/skills/htmldock/SKILL.md</code>）</h3>
+<pre><code># htmldock
+
+Use this skill whenever you create an HTML technical document
+(spec, plan, review, runbook, design doc) inside a project that has
+`.htmldock.toml` with `sync = true`.
+
+## Before writing the HTML
+
+1. Run `htmldock list --project=current --tree` to see the existing
+   module tree for this project.
+2. Decide where the new doc belongs:
+   - If the doc's topic matches an existing top-level module (e.g.
+     `auth/`, `billing/`, `infra/`), **reuse that prefix**.
+   - Don't create synonyms (`authentication/` when `auth/` already
+     exists; `infrastructure/` when `infra/` exists).
+   - If no module fits, choose the shortest meaningful prefix
+     (1-2 words, kebab-case, matching the project's existing
+     naming style).
+3. Keep depth ≤ 3 levels **including the filename**:
+   - 1 level: `release-notes.html`
+   - 2 levels: `auth/login-flow.html`
+   - 3 levels: `auth/oauth/lark-integration.html`
+   - **Never** 4 levels — the server rejects with `path_too_deep`.
+4. Don't manufacture hierarchy. If 1 level is enough, use 1 level.
+
+## After writing the HTML
+
+The PostToolUse hook auto-uploads. If it fails, you'll see a queue
+entry; the next `htmldock push` drains it. No need to invoke push
+yourself unless the user explicitly asks "publish this now".
+
+## When the user says "publish this"
+
+Run `htmldock push &lt;filepath&gt;`. Do not edit the HTML unless
+explicitly asked. Report the printed URL back.</code></pre>
+
+      <div class="callout">
+        <strong>Skill 与 Hook 的关系：</strong>Hook 是"自动"的，针对所有写入的 HTML；Skill 是"显式"的，针对用户的自然语言请求。两者共用 CLI <code>htmldock push</code>，互不依赖；Hook 失败不会触发 Skill，Skill 调用也不依赖 Hook 是否安装。
+      </div>
+    </section>
+
+    <!-- ==================== §6 ==================== -->
+    <section id="s6">
+      <h2>§6 认证流程（Lark OAuth only）</h2>
+      <p>MVP 只实现 Lark OAuth。浏览器使用 session cookie，CLI 使用 Personal Access Token（PAT）。Cloudflare Access SSO 保持延期，不进入本节实现范围。</p>
+
+      <h3>Diagram A：Browser flow</h3>
+      <div class="arch">
+        <svg viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow-auth-a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L9,3 Z" fill="#1a1a1a"/>
+            </marker>
+            <style>
+              .auth-box { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.1; }
+              .auth-label { font: 600 13px -apple-system, "PingFang SC", sans-serif; fill: #1a1a1a; }
+              .auth-sub { font: 11.5px -apple-system, "PingFang SC", sans-serif; fill: #6b6b6b; }
+              .auth-arrow { stroke: #1a1a1a; stroke-width: 1.1; fill: none; marker-end: url(#arrow-auth-a); }
+            </style>
+          </defs>
+          <rect class="auth-box" x="30" y="32" width="150" height="54" rx="6"/>
+          <text class="auth-label" x="105" y="55" text-anchor="middle">Browser</text>
+          <text class="auth-sub" x="105" y="73" text-anchor="middle">no session</text>
+
+          <rect class="auth-box" x="375" y="32" width="150" height="54" rx="6"/>
+          <text class="auth-label" x="450" y="55" text-anchor="middle">Worker</text>
+          <text class="auth-sub" x="450" y="73" text-anchor="middle">Hono routes</text>
+
+          <rect class="auth-box" x="720" y="32" width="150" height="54" rx="6"/>
+          <text class="auth-label" x="795" y="55" text-anchor="middle">Lark OAuth</text>
+          <text class="auth-sub" x="795" y="73" text-anchor="middle">consent</text>
+
+          <rect class="auth-box" x="545" y="250" width="160" height="54" rx="6"/>
+          <text class="auth-label" x="625" y="273" text-anchor="middle">users table</text>
+          <text class="auth-sub" x="625" y="291" text-anchor="middle">upsert user</text>
+
+          <path class="auth-arrow" d="M180 58 L375 58"/>
+          <text class="auth-sub" x="277" y="47" text-anchor="middle">GET /dashboard</text>
+
+          <path class="auth-arrow" d="M525 58 L720 58"/>
+          <text class="auth-sub" x="622" y="47" text-anchor="middle">302 /api/auth/lark</text>
+
+          <path class="auth-arrow" d="M795 86 C795 150 530 150 450 86"/>
+          <text class="auth-sub" x="650" y="135" text-anchor="middle">callback?code=X</text>
+
+          <path class="auth-arrow" d="M525 86 C590 125 695 125 760 86"/>
+          <text class="auth-sub" x="642" y="116" text-anchor="middle">exchange code + userinfo</text>
+
+          <path class="auth-arrow" d="M490 86 C560 145 600 190 625 250"/>
+          <text class="auth-sub" x="595" y="198" text-anchor="middle">upsert</text>
+
+          <path class="auth-arrow" d="M375 70 C245 130 180 195 105 86"/>
+          <text class="auth-sub" x="218" y="160" text-anchor="middle">set session cookie + 302 /dashboard</text>
+        </svg>
+        <div class="arch-caption">图 2 · Browser Lark OAuth session flow</div>
+      </div>
+
+      <h3>Diagram B：CLI flow（<code>htmldock login</code>）</h3>
+      <div class="arch">
+        <svg viewBox="0 0 920 430" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow-auth-b" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L9,3 Z" fill="#1a1a1a"/>
+            </marker>
+            <style>
+              .cli-box { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.1; }
+              .cli-label { font: 600 13px -apple-system, "PingFang SC", sans-serif; fill: #1a1a1a; }
+              .cli-sub { font: 11.5px -apple-system, "PingFang SC", sans-serif; fill: #6b6b6b; }
+              .cli-arrow { stroke: #1a1a1a; stroke-width: 1.1; fill: none; marker-end: url(#arrow-auth-b); }
+            </style>
+          </defs>
+          <rect class="cli-box" x="30" y="30" width="170" height="60" rx="6"/>
+          <text class="cli-label" x="115" y="55" text-anchor="middle">CLI</text>
+          <text class="cli-sub" x="115" y="74" text-anchor="middle">local listener :N</text>
+
+          <rect class="cli-box" x="285" y="30" width="170" height="60" rx="6"/>
+          <text class="cli-label" x="370" y="55" text-anchor="middle">Browser</text>
+          <text class="cli-sub" x="370" y="74" text-anchor="middle">login page</text>
+
+          <rect class="cli-box" x="540" y="30" width="170" height="60" rx="6"/>
+          <text class="cli-label" x="625" y="55" text-anchor="middle">Worker</text>
+          <text class="cli-sub" x="625" y="74" text-anchor="middle">/cli/login</text>
+
+          <rect class="cli-box" x="760" y="30" width="130" height="60" rx="6"/>
+          <text class="cli-label" x="825" y="55" text-anchor="middle">Lark</text>
+          <text class="cli-sub" x="825" y="74" text-anchor="middle">consent</text>
+
+          <rect class="cli-box" x="540" y="315" width="170" height="60" rx="6"/>
+          <text class="cli-label" x="625" y="340" text-anchor="middle">pats / users 表</text>
+          <text class="cli-sub" x="625" y="359" text-anchor="middle">存 PAT hash</text>
+
+          <path class="cli-arrow" d="M200 60 L285 60"/>
+          <text class="cli-sub" x="242" y="49" text-anchor="middle">open browser</text>
+
+          <path class="cli-arrow" d="M455 60 L540 60"/>
+          <text class="cli-sub" x="497" y="36" text-anchor="middle">/cli/login?cb=http://127.0.0.1:N&amp;state=RAND</text>
+
+          <path class="cli-arrow" d="M710 60 L760 60"/>
+          <text class="cli-sub" x="735" y="49" text-anchor="middle">OAuth</text>
+
+          <path class="cli-arrow" d="M825 90 C820 150 700 155 625 90"/>
+          <text class="cli-sub" x="735" y="138" text-anchor="middle">callback code</text>
+
+          <path class="cli-arrow" d="M625 90 L625 315"/>
+          <text class="cli-sub" x="675" y="205" text-anchor="middle">generate PAT</text>
+
+          <path class="cli-arrow" d="M540 340 C360 340 265 260 200 90"/>
+          <text class="cli-sub" x="337" y="294" text-anchor="middle">callback page JS POST PAT to /save</text>
+
+          <path class="cli-arrow" d="M115 90 L115 250"/>
+          <text class="cli-sub" x="185" y="177" text-anchor="middle">write config.toml</text>
+
+          <path class="cli-arrow" d="M285 75 C220 128 210 188 285 240"/>
+          <text class="cli-sub" x="354" y="165" text-anchor="middle">Done, you may close this tab</text>
+        </svg>
+        <div class="arch-caption">图 3 · CLI login PAT bootstrap flow</div>
+      </div>
+
+      <div class="callout">
+        <strong>Public share flow（no auth）:</strong> <code>GET /p/&lt;token&gt;</code> 进入 Worker 后，查 <code>shares</code> 表：要求 token 存在、未 <code>revoked</code>、未过期；同时校验 <code>docs.visibility</code> 不为 <code>private-strict</code>；通过 <code>doc_id</code> 找到 <code>docs.r2_key</code>，从 R2 stream object，返回 <code>Content-Type: text/html; charset=utf-8</code>。该路径不要求 session cookie 或 PAT。
+      </div>
+    </section>
+
+    <!-- ==================== §7 ==================== -->
+    <section id="s7">
+      <h2>§7 索引页 UX</h2>
+      <div class="callout info">
+        All index pages are Worker-rendered from D1. No HTML is uploaded to represent the index — the Worker generates it on every request.
+      </div>
+
+      <h3>Layout A：三栏工作台</h3>
+      <div style="border:1px solid var(--border);border-radius:8px;background:#fff;box-shadow:var(--shadow);overflow:hidden;margin:14px 0;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;background:#fbfbfa;">
+          <input value="Search docs, repos, authors..." style="flex:1;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font:13px -apple-system,'PingFang SC',sans-serif;color:var(--fg-muted);background:white;">
+          <button style="border:1px solid var(--border-strong);background:var(--fg);color:white;border-radius:6px;padding:9px 12px;font:13px -apple-system,'PingFang SC',sans-serif;">Search</button>
+        </div>
+        <div style="display:grid;grid-template-columns:210px 1fr 210px;min-height:330px;">
+          <div style="border-right:1px solid var(--border);padding:14px;background:#f8f7f4;">
+            <div style="font-size:12px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Projects</div>
+            <div style="font-weight:600;margin:8px 0;">▾ github.com <span style="float:right;color:var(--fg-muted);font-weight:400;">147</span></div>
+            <div style="padding-left:12px;color:var(--fg-muted);">
+              <div>▾ leeguoo <span style="float:right;">82</span></div>
+              <div style="padding-left:12px;color:var(--fg);font-weight:600;">cherry <span style="float:right;color:var(--fg-muted);font-weight:400;">24</span></div>
+              <div style="padding-left:12px;">htmldock <span style="float:right;">18</span></div>
+              <div style="padding-left:12px;">billing <span style="float:right;">40</span></div>
+              <div>▸ infra <span style="float:right;">65</span></div>
+            </div>
+            <div style="font-weight:600;margin:14px 0 8px;">▾ gitlab.internal <span style="float:right;color:var(--fg-muted);font-weight:400;">31</span></div>
+            <div style="padding-left:12px;color:var(--fg-muted);">
+              <div>▸ platform <span style="float:right;">31</span></div>
+            </div>
+          </div>
+          <div style="padding:16px 18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <strong>Recent Updates</strong>
+              <span style="font-size:12px;color:var(--fg-muted);">Showing first 20 · <a href="#" style="color:var(--accent);text-decoration:none;">Show all 147 →</a></span>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 130px 90px 90px;gap:8px;">
+                <strong>Auth redesign notes</strong><span style="color:var(--fg-muted);">cherry</span><span>Leo</span><span style="color:var(--fg-muted);">2m ago</span>
+              </div>
+              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 130px 90px 90px;gap:8px;">
+                <strong>R2 upload contract</strong><span style="color:var(--fg-muted);">htmldock</span><span>Ming</span><span style="color:var(--fg-muted);">18m ago</span>
+              </div>
+              <div style="padding:11px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 130px 90px 90px;gap:8px;">
+                <strong>Search indexing plan</strong><span style="color:var(--fg-muted);">htmldock</span><span>Ada</span><span style="color:var(--fg-muted);">1h ago</span>
+              </div>
+              <div style="padding:18px;text-align:center;color:var(--fg-muted);background:#fbfbfa;">No documents yet. Run <code>htmldock push</code> to get started.</div>
+            </div>
+          </div>
+          <div style="border-left:1px solid var(--border);padding:14px;background:#f8f7f4;">
+            <div style="font-size:12px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">My Docs</div>
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);"><strong>CLI spec</strong><br><span style="color:var(--fg-muted);font-size:12px;">htmldock · today</span></div>
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);"><strong>Dashboard UX</strong><br><span style="color:var(--fg-muted);font-size:12px;">htmldock · yesterday</span></div>
+            <div style="padding:10px 0;"><strong>OAuth notes</strong><br><span style="color:var(--fg-muted);font-size:12px;">cherry · Mon</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Layout B：项目卡片网格</h3>
+      <div style="border:1px solid var(--border);border-radius:8px;background:#fff;box-shadow:var(--shadow);overflow:hidden;margin:14px 0;">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:150px 150px 1fr;gap:10px;background:#fbfbfa;">
+          <select style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg);"><option>github.com</option><option>gitlab.internal</option></select>
+          <input value="owner: leeguoo" style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg-muted);">
+          <input value="Search project docs..." style="border:1px solid var(--border);border-radius:6px;padding:9px;background:white;color:var(--fg-muted);">
+        </div>
+        <div style="padding:18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;background:#fff;">
+          <div style="border:1px solid var(--border);border-radius:6px;padding:14px;background:#fbfbfa;">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><strong>cherry</strong><span style="width:28px;height:28px;border-radius:50%;background:#ddd;display:inline-block;"></span></div>
+            <div style="color:var(--fg-muted);font-size:13px;margin-top:8px;">147 docs · updated 2m ago</div>
+            <div style="margin-top:10px;color:var(--accent);font-size:13px;">Open project →</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:14px;background:#fbfbfa;">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><strong>htmldock</strong><span style="width:28px;height:28px;border-radius:50%;background:#cfcfcf;display:inline-block;"></span></div>
+            <div style="color:var(--fg-muted);font-size:13px;margin-top:8px;">18 docs · updated 18m ago</div>
+            <div style="margin-top:10px;color:var(--accent);font-size:13px;">Open project →</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:6px;padding:14px;background:#fbfbfa;">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><strong>billing</strong><span style="width:28px;height:28px;border-radius:50%;background:#e0e0e0;display:inline-block;"></span></div>
+            <div style="color:var(--fg-muted);font-size:13px;margin-top:8px;">40 docs · updated 1h ago</div>
+            <div style="margin-top:10px;color:var(--accent);font-size:13px;">Open project →</div>
+          </div>
+        </div>
+        <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:#fbfbfa;color:var(--fg-muted);font-size:13px;">
+          <span>No documents yet? Run <code>htmldock push ./design.html</code> to get started.</span>
+          <span><button style="border:1px solid var(--border);background:white;border-radius:5px;padding:6px 9px;">Prev</button> Page 1 of 8 <button style="border:1px solid var(--border);background:white;border-radius:5px;padding:6px 9px;">Next</button></span>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>Recommendation: Layout A because</strong> htmldock 的主要使用场景是"快速找到最近生成/更新的文档"，不是先选择项目再进入。三栏工作台把项目树、recent updates、my docs 放在同一屏，适合团队内部高频浏览；100+ docs 的项目通过左侧计数和"Show all 147 →"渐进展开。
+      </div>
+    </section>
+
+    <!-- ==================== §8 ==================== -->
+    <section id="s8">
+      <h2>§8 错误处理与测试</h2>
+      <div class="callout">
+        <strong>幂等性：</strong>如果 <code>(project_id, path, sha256)</code> 已存在于 <code>docs</code>，跳过 R2 write，返回 <code>200</code> 和已有 doc URL，<strong>不更新</strong> <code>updated_at</code>。理由：sha256 一致代表内容相同，timestamp churn 浪费 D1 写、污染 recent updates。
+      </div>
+
+      <h3>Retry strategy</h3>
+      <table>
+        <thead><tr><th>Attempt</th><th>Wait Before Retry</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>1st fail</td><td>0s</td><td>Immediate retry。</td></tr>
+          <tr><td>2nd fail</td><td>2s</td><td>Short delay retry。</td></tr>
+          <tr><td>3rd fail</td><td>8s</td><td>Final network retry。</td></tr>
+          <tr><td>4th fail</td><td>—</td><td>写 <code>queue.jsonl</code>，exit with error message。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Test coverage</h3>
+      <table>
+        <thead><tr><th>ID</th><th>Description</th><th>Layer</th><th>Tool</th></tr></thead>
+        <tbody>
+          <tr><td>T01</td><td>Valid push happy path：上传 HTML，创建/更新 project 和 doc，返回 URL。</td><td>Integration</td><td>Miniflare + Bun test</td></tr>
+          <tr><td>T02</td><td>重复 sha256 返回 200，不写 R2，不刷 <code>updated_at</code>。</td><td>Integration</td><td>Miniflare R2 mock + D1 assertion</td></tr>
+          <tr><td>T03</td><td>SSH remote URL 解析 <code>git@github.com:leeguoo/cherry.git</code>。</td><td>Unit</td><td>Bun test</td></tr>
+          <tr><td>T04</td><td>HTTPS remote URL 解析 <code>https://github.com/leeguoo/cherry.git</code>。</td><td>Unit</td><td>Bun test</td></tr>
+          <tr><td>T05</td><td>SSH alias fallback 保留 alias host 并标 <code>host_resolution=alias</code>。</td><td>Unit</td><td>Bun test</td></tr>
+          <tr><td>T06</td><td>无 remote 时报错并非零退出。</td><td>CLI</td><td>Bun test + temp git repo</td></tr>
+          <tr><td>T07</td><td>Lark OAuth callback 兑 code、拉 userinfo、建 session cookie。</td><td>Integration</td><td>Miniflare + mocked Lark API</td></tr>
+          <tr><td>T08</td><td>PAT auth：合法 PAT 通过，伪造 PAT 401。</td><td>Integration</td><td>Miniflare + D1 seed</td></tr>
+          <tr><td>T09</td><td>公开 share link 无 auth 可读 R2。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td>T10</td><td>过期 / 已 revoke 的 share link 返回 404。</td><td>Integration</td><td>Miniflare + D1 seed</td></tr>
+          <tr><td>T11</td><td>Queue replay：next push 成功后 drain queue.jsonl。</td><td>CLI</td><td>Bun test + temp queue.jsonl</td></tr>
+          <tr><td>T12</td><td>Hook 静默忽略非 .html 文件。</td><td>Unit</td><td>Bun test</td></tr>
+          <tr><td><strong>T13</strong></td><td><strong>opt-in 守门</strong>：repo 无 <code>.htmldock.toml</code> 时 Hook + CLI 都拒绝上传。</td><td>CLI</td><td>Bun test + temp repo</td></tr>
+          <tr><td><strong>T14</strong></td><td><strong>path_too_deep</strong>：API 收到 4 段 path 返回 400 <code>path_too_deep</code>；CLI 同样在客户端拦下并提示压扁。</td><td>Integration</td><td>Miniflare</td></tr>
+          <tr><td>T15</td><td><code>module_root = "docs"</code> 时 <code>scratch/notes.html</code> 不被 Hook 上传。</td><td>CLI</td><td>Bun test + temp repo</td></tr>
+          <tr><td>T16</td><td>FTS5 全文搜索命中：插入 doc → 搜索关键词 → 返回 doc_id。</td><td>Integration</td><td>Miniflare D1</td></tr>
+          <tr><td>T17</td><td>FTS5 删除一致性：删除 doc → FTS 同步清理，不再命中。</td><td>Integration</td><td>Miniflare D1</td></tr>
+          <tr><td>T18</td><td><code>--force</code> 绕过 <code>sync = false</code> 单次上传成功。</td><td>CLI</td><td>Bun test</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>E2E：</strong>Miniflare 跑单元 + 集成，CI 不需真 R2/D1 凭据。<code>wrangler dev</code> + 真 R2/D1 留给 pre-release smoke：验 binding、对象 streaming、OAuth callback URL、生产权限。
+      </div>
+    </section>
+
+    <!-- ==================== Open Questions ==================== -->
+    <section id="open">
+      <h2>开放问题汇总</h2>
+      <ol>
+        <li><strong>Q1（已落定）</strong>：R2 原地覆盖、不留历史、不引入 <code>doc_revisions</code>。</li>
+        <li><strong>Q2</strong>：项目级同步开关——<strong>默认 opt-in</strong>（建议）vs opt-out？全局 <code>default_project_sync</code> 是否需要 <code>"ask"</code>？</li>
+        <li><strong>Q3</strong>：模块树深度——<strong>硬限 3 级</strong>（建议）？还是放宽到 4 级但默认 3 级（在 <code>.htmldock.toml</code> 里可调）？</li>
+      </ol>
+    </section>
+
+    <hr class="soft">
+    <p style="color:var(--fg-muted);font-size:13px;">
+      v0.3 修订要点：项目全面改名 <code>html-pla → htmldock</code>；删 §1 残留的 Cloudflare Access 引用；修 R2 key 的 <code>?v=</code> 歧义；§2 增加 FTS5 rowid 同步触发器；§5 新增项目级 <code>.htmldock.toml</code> 与模块树 ≤ 3 规则；§8 新增 T13–T18。
+    </p>
+  </main>
+</div>
+</body>
+</html>
