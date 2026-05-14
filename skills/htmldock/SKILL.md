@@ -70,6 +70,43 @@ htmldock delete <doc-id>                  # delete one doc (you own it, or you a
 htmldock project delete acme-infra/cherry --yes  # delete whole project (team admin only)
 ```
 
+## HTML Style Reference
+
+When generating the HTML you are about to publish, match the patterns in
+[`ThariqS/html-effectiveness`](https://github.com/ThariqS/html-effectiveness)
+— Thariq Shihipar's 20-file companion to his essay
+*The Unreasonable Effectiveness of HTML*. Use the file whose category
+fits the doc you are writing:
+
+| Doc kind | Reference file in `ThariqS/html-effectiveness` |
+|---|---|
+| Exploration of options (code/visual) | `01-exploration-code-approaches.html`, `02-exploration-visual-designs.html` |
+| Code review / PR walkthrough | `03-code-review-pr.html`, `17-pr-writeup.html` |
+| Code understanding / module walkthrough | `04-code-understanding.html` |
+| Design system / component variants | `05-design-system.html`, `06-component-variants.html` |
+| Animation / interaction prototype | `07-prototype-animation.html`, `08-prototype-interaction.html` |
+| Slide deck | `09-slide-deck.html` |
+| SVG illustration / diagram | `10-svg-illustrations.html`, `13-flowchart-diagram.html` |
+| Status / weekly / quarterly report | `11-status-report.html` |
+| Incident / postmortem / RCA | `12-incident-report.html` |
+| Feature explainer / research deep-dive | `14-research-feature-explainer.html`, `15-research-concept-explainer.html` |
+| Implementation plan | `16-implementation-plan.html` |
+| Tunable / editable artifact (knobs, triage board) | `18-editor-triage-board.html`, `19-editor-feature-flags.html`, `20-editor-prompt-tuner.html` |
+
+A hosted mirror of all 20 examples lives at
+`https://htmldock.pwtk-dev.work` under team `html-effectiveness`,
+project `gallery`. Browse there for quick visual comparison without
+cloning the repo.
+
+Style invariants to copy:
+
+- Self-contained `<style>` in `<head>` — no external CDN, no JS frameworks
+- CSS custom properties on `:root` for the palette
+- Semantic tags (`<header>`, `<section>`, `<aside>`, `<table>`) — not div soup
+- Tables beat nested bullet lists for structured data
+- One accent color + two or three grays — no decoration for its own sake
+- Font stack: `-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Inter", sans-serif`
+
 ## Token Setup
 
 The CLI reads `~/.config/htmldock/config.toml`:
