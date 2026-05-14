@@ -150,3 +150,5 @@ The skill is deployment-agnostic. After installing it, configure the CLI for you
 ```bash
 htmldock config set-token hd_pat_... --server https://docs.example.com
 ```
+
+The skill includes `scripts/install-cli.sh`, so agents can install the GitHub Release binary automatically when `htmldock` is not already in PATH. This avoids asking users to pick an installation method during upload tasks.

@@ -7,6 +7,35 @@ description: Use when creating, updating, or publishing HTML documentation throu
 
 Use htmldock for HTML technical documents that should be published to the team document base.
 
+## Agent Autopilot
+
+When the user wants to upload or publish HTML, do not ask how to install the CLI.
+
+1. Check whether `htmldock` works:
+
+```bash
+command -v htmldock && htmldock --version
+```
+
+2. If it is missing, install it automatically from the GitHub Release binary. Prefer the bundled installer:
+
+```bash
+installer="$(find "$HOME/.codex/skills" "$HOME/.agents/skills" -path "*/htmldock/scripts/install-cli.sh" -print -quit 2>/dev/null)"
+if [ -n "$installer" ]; then
+  bash "$installer"
+else
+  curl -fsSL https://raw.githubusercontent.com/leeguooooo/htmldock/main/scripts/install.sh | bash
+fi
+```
+
+3. If the binary was installed to `~/.local/bin` and that directory is not in PATH, run it by absolute path for this session:
+
+```bash
+~/.local/bin/htmldock --version
+```
+
+4. If the user says they already have a token, configure it with `htmldock config set-token <token> --server <server>`. Never ask the user to choose between install methods.
+
 ## Upload Workflow
 
 1. Confirm the target repo has `.htmldock.toml`. If it does not, run `htmldock init` once from the repo.
