@@ -103,8 +103,12 @@ htmldock open 1
 
 ## Install This Skill
 
+Platform-agnostic; install once for every agent on the machine:
+
 ```bash
-npx skills add leeguooooo/htmldock --skill htmldock -a codex -g
+npx skills add leeguooooo/htmldock --skill htmldock -g
 ```
+
+(Pass `-a <agent>` to scope to one runner, e.g. `-a codex` or `-a claude`. Default registers for all detected agents.)
 
 Do not paste PAT values into chat or committed files.

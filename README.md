@@ -129,21 +129,23 @@ htmldock open 1
 
 For local development before a release, replace `htmldock` with `bun src/cli.ts`.
 
-## Codex skill
+## Agent skill
 
-A distributable skill is included at `skills/htmldock/SKILL.md`.
+A distributable skill is included at `skills/htmldock/SKILL.md`. It is platform-agnostic — Codex, Claude Code, and any other agent runner supported by [`skills.sh`](https://skills.sh) can use it.
 
-Install it with the `skills.sh` CLI:
-
-```bash
-npx skills add leeguooooo/htmldock --skill htmldock -a codex -g
-```
-
-For project-local installation, omit `-g`:
+Install globally for every agent on your machine:
 
 ```bash
-npx skills add leeguooooo/htmldock --skill htmldock -a codex
+npx skills add leeguooooo/htmldock --skill htmldock -g
 ```
+
+Project-local install (omit `-g`):
+
+```bash
+npx skills add leeguooooo/htmldock --skill htmldock
+```
+
+If you need to limit it to one agent, pass `-a <agent>` (e.g. `-a codex` or `-a claude`). The default with no `-a` registers the skill for all detected agents.
 
 The skill is deployment-agnostic. After installing it, configure the CLI for your own htmldock deployment:
 
