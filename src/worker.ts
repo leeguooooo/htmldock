@@ -328,10 +328,13 @@ async function dashboard(request: Request, env: Env): Promise<Response> {
 
   const toRow = (doc: DocListRow): DashboardRow => {
     const ownerName = doc.owner_name || doc.owner_email || (doc.owner_user_id ? `User ${doc.owner_user_id}` : "—");
+    const pathLabel = doc.team_slug === "legacy"
+      ? `${doc.project_slug} / ${doc.path}`
+      : `${doc.team_slug} / ${doc.project_slug} / ${doc.path}`;
     return {
       id: doc.id,
       title: doc.title || doc.path,
-      pathLabel: `${doc.team_slug} / ${doc.project_slug} / ${doc.path}`,
+      pathLabel,
       owner: { name: ownerName, initials: initialsOf(ownerName), color: deterministicColor(AVATAR_PALETTE, ownerName) },
       whenRel: relTime(doc.updated_at, now)
     };
@@ -352,7 +355,7 @@ async function dashboard(request: Request, env: Env): Promise<Response> {
               (SELECT MAX(updated_at) FROM docs WHERE docs.project_id = projects.id) AS last_updated
        FROM projects JOIN teams ON teams.id = projects.team_id
        JOIN team_members ON team_members.team_id = teams.id AND team_members.user_id = ?
-       ORDER BY last_updated DESC, projects.slug
+       ORDER BY (teams.slug = 'legacy') ASC, last_updated DESC, projects.slug
        LIMIT 8`
     )
       .bind(user.id)
@@ -408,10 +411,19 @@ async function dashboard(request: Request, env: Env): Promise<Response> {
   const data: DashboardData = {
     user: { name: userName, initials: initialsOf(userName), avatarColor: deterministicColor(AVATAR_PALETTE, userName) },
     brandName: "htmldock",
-    teams: teamRows.map((t) => ({
-      slug: t.slug, name: t.name, docCount: t.doc_count,
-      color: deterministicColor(TEAM_PALETTE, t.slug), expanded: true
-    })),
+    teams: [...teamRows]
+      .sort((a, b) => {
+        if (a.slug === "legacy" && b.slug !== "legacy") return 1;
+        if (b.slug === "legacy" && a.slug !== "legacy") return -1;
+        return a.slug.localeCompare(b.slug);
+      })
+      .map((t) => ({
+        slug: t.slug,
+        name: t.slug === "legacy" ? `${t.name} (migration backfill)` : t.name,
+        docCount: t.doc_count,
+        color: deterministicColor(TEAM_PALETTE, t.slug),
+        expanded: t.slug !== "legacy"
+      })),
     recent,
     projects,
     today,
@@ -603,7 +615,7 @@ async function uploadDoc(request: Request, env: Env): Promise<Response> {
   if (size > MAX_HTML_BYTES) return json({ code: "file_too_large", message: "File too large", max_bytes: MAX_HTML_BYTES }, 413);
 
   const metadata = parseMetadata(metadataField);
-  if (!metadata) return apiError("invalid_metadata", "Invalid metadata", 400);
+  if (typeof metadata === "string") return apiError("invalid_metadata", metadata, 400);
 
   try {
     assertDisplayPath(metadata.path);
@@ -925,17 +937,13 @@ async function ensureProject(
   input: EnsureProjectInput | null,
   now: number
 ): Promise<(ProjectRow & { team_slug: string }) | Response> {
-  if (
-    !input?.team_slug ||
-    !input.project_slug ||
-    !isValidSlug(input.team_slug) ||
-    !isValidSlug(input.project_slug) ||
-    !input.git?.host ||
-    !input.git.owner ||
-    !input.git.repo
-  ) {
-    return apiError("invalid_metadata", "Invalid project metadata", 400);
-  }
+  if (!input?.team_slug) return apiError("invalid_metadata", "team_slug is required", 400);
+  if (!input.project_slug) return apiError("invalid_metadata", "project_slug is required", 400);
+  if (!isValidSlug(input.team_slug)) return apiError("invalid_metadata", `team_slug ${JSON.stringify(input.team_slug)} is not a valid slug (lowercase a-z, 0-9, dot/underscore/hyphen)`, 400);
+  if (!isValidSlug(input.project_slug)) return apiError("invalid_metadata", `project_slug ${JSON.stringify(input.project_slug)} is not a valid slug`, 400);
+  if (!input.git?.host) return apiError("invalid_metadata", "git.host is required", 400);
+  if (!input.git.owner) return apiError("invalid_metadata", "git.owner is required", 400);
+  if (!input.git.repo) return apiError("invalid_metadata", "git.repo is required", 400);
 
   const team = await db.prepare("SELECT * FROM teams WHERE slug = ?").bind(input.team_slug).first<TeamRow>();
   if (!team) return apiError("team_not_found", "Team not found", 404);
@@ -1028,9 +1036,11 @@ async function currentActor(request: Request, env: Env): Promise<TokenUser | Res
   return session ? { user_id: session.user_id, scopes: [] } : apiError("unauthorized", "Unauthorized", 401);
 }
 
+const ALL_PAT_SCOPES = ["docs:read", "docs:write", "docs:delete", "projects:delete", "share:write"];
+
 function normalizePatScopes(scopes: unknown): string[] {
-  const allowed = new Set(["docs:read", "docs:write", "docs:delete", "projects:delete", "share:write"]);
-  if (!Array.isArray(scopes)) return ["docs:read", "docs:write", "share:write"];
+  const allowed = new Set(ALL_PAT_SCOPES);
+  if (!Array.isArray(scopes)) return [...ALL_PAT_SCOPES];
   const normalized = scopes.filter((scope): scope is string => typeof scope === "string" && allowed.has(scope));
   return normalized.length > 0 ? [...new Set(normalized)] : ["docs:read"];
 }
@@ -1077,7 +1087,7 @@ async function sessionUser(request: Request, env: Env): Promise<null | { user_id
   return { user_id: row.user_id };
 }
 
-function parseMetadata(raw: string): null | {
+function parseMetadata(raw: string): string | {
   team_slug: string;
   project_slug: string;
   git: ProjectCoordinate;
@@ -1087,25 +1097,26 @@ function parseMetadata(raw: string): null | {
   sha256?: string;
   visibility: Visibility;
 } {
+  let value: Record<string, unknown>;
   try {
-    const value = JSON.parse(raw) as Record<string, unknown>;
-    const git = value.git as Record<string, unknown> | undefined;
-    const visibility = value.visibility || "team";
-    if (
-      typeof value.team_slug !== "string" ||
-      typeof value.project_slug !== "string" ||
-      !isValidSlug(value.team_slug) ||
-      !isValidSlug(value.project_slug) ||
-      !git ||
-      typeof git.host !== "string" ||
-      typeof git.owner !== "string" ||
-      typeof git.repo !== "string" ||
-      typeof value.source_path !== "string" ||
-      typeof value.path !== "string" ||
-      !["team", "public-allowed", "private-strict"].includes(String(visibility))
-    ) {
-      return null;
-    }
+    value = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return "metadata is not valid JSON";
+  }
+  const git = value.git as Record<string, unknown> | undefined;
+  const visibility = value.visibility || "team";
+  if (typeof value.team_slug !== "string") return "team_slug is required (string)";
+  if (!isValidSlug(value.team_slug)) return `team_slug ${JSON.stringify(value.team_slug)} is not a valid slug (lowercase a-z, 0-9, dot/underscore/hyphen, must start and end with alphanumeric)`;
+  if (typeof value.project_slug !== "string") return "project_slug is required (string)";
+  if (!isValidSlug(value.project_slug)) return `project_slug ${JSON.stringify(value.project_slug)} is not a valid slug (lowercase a-z, 0-9, dot/underscore/hyphen, must start and end with alphanumeric)`;
+  if (!git) return "git is required (object with host/owner/repo)";
+  if (typeof git.host !== "string" || !git.host) return "git.host is required";
+  if (typeof git.owner !== "string" || !git.owner) return "git.owner is required";
+  if (typeof git.repo !== "string" || !git.repo) return "git.repo is required";
+  if (typeof value.source_path !== "string") return "source_path is required";
+  if (typeof value.path !== "string") return "path is required";
+  if (!["team", "public-allowed", "private-strict"].includes(String(visibility))) return `visibility ${JSON.stringify(visibility)} must be team / public-allowed / private-strict`;
+  try {
     return {
       team_slug: value.team_slug,
       project_slug: value.project_slug,
@@ -1116,8 +1127,8 @@ function parseMetadata(raw: string): null | {
       sha256: typeof value.sha256 === "string" ? value.sha256 : undefined,
       visibility: visibility as Visibility
     };
-  } catch {
-    return null;
+  } catch (error) {
+    return `metadata parse error: ${String(error instanceof Error ? error.message : error)}`;
   }
 }
 
